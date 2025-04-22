@@ -82,7 +82,7 @@ const VibeModal = ({
 									backgroundImage: `url(${form.media})`,
 									backgroundSize: "cover",
 									backgroundPosition: "center",
-									filter: "blur(8px)",
+									filter: "blur(2px)",
 									transform: "scale(1.05)",
 								}}
 								initial={{ opacity: 0 }}
@@ -109,9 +109,6 @@ const VibeModal = ({
 						exit={{ scale: 0.95, opacity: 0 }}
 						transition={{ duration: 0.3, ease: "easeInOut" }}
 					>
-						<button onClick={onClose} className={clsx("absolute top-4 right-4 text-2xl hover:opacity-70", vibeStyles?.text)}>
-							<CircleX />
-						</button>
 						<div className={clsx("p-6 md:p-10 h-full")}>
 							<VibeForm form={form} setForm={setForm} userId={userId} vibes={vibes} onClose={onClose} isOwner={selectedVibe?.profile_id === userId} vibeId={form.id} mode={mode} />
 						</div>

@@ -5,7 +5,7 @@ import { clsx } from 'clsx';
 import { uploadVibeMedia } from '@/lib/uploadVibeMedia';
 import imageCompression from 'browser-image-compression';
 import { motion } from 'framer-motion';
-import {AudioLines, Calendar, CircleX, ImagePlus, Pencil, SmilePlus, Trash2} from 'lucide-react';
+import {AudioLines, Backpack, Calendar, ChevronLeft, CircleX, ImagePlus, Pencil, SmilePlus, Trash2} from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/date-utiles';
 import { useTheme } from 'next-themes';
@@ -132,19 +132,20 @@ const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode
 		}
 	}
 	
-	
-	console.log(666, showConfirm)
 	return (
 		<form onSubmit={handleSubmit} className={clsx('flex flex-col justify-between h-full gap-6', vibeStyles?.text)}>
 			
 			
-			
-			{ mode === 'view' && isOwner && (
 				<div className={clsx("fixed top-6 left-6 z-50 px-5 py-3 rounded-full shadow-lg transition flex items-center justify-items-center gap-3 text-sm", vibeStyles?.bg)}>
-					<MotionLink href={`/v/oldski/${vibeId}/edit`} title="edit vibe"><Pencil /></MotionLink>
-					<button type="button" onClick={() => setShowConfirm(true)} title="delete vibe"><Trash2 /></button>
+					<MotionLink href={`/v/oldski/`} title="back to vibe"><ChevronLeft /></MotionLink>
+					{ isOwner && (
+						<>
+							<MotionLink href={`/v/oldski/${vibeId}/edit`} className={clsx(mode === 'edit' && 'bg-black rounded-full text-white')} title="edit vibe"><Pencil /></MotionLink>
+							<button type="button" onClick={() => setShowConfirm(true)} title="delete vibe"><Trash2 /></button>
+						</>
+					)}
 				</div>
-			)}
+			
 			
 			{/* Date Field */}
 			<div className={clsx('flex items-center justify-end gap-2 text-lg md:text-2xl font-bold text-right')}>
@@ -351,24 +352,7 @@ const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode
 			)}
 			
 			{mode !== 'view' && (
-				<div className="flex flex-row justify-between align-items-center">
-					{mode === 'edit' && isOwner ? (
-						<motion.button
-							type="button"
-							onClick={() => setShowConfirm(true)}
-							whileTap={{ scale: 0.95 }}
-							className={clsx(
-								"px-4 py-2 text-sm rounded-full border mt-4",
-								vibeStyles?.text,
-								vibeStyles?.border,
-								vibeStyles?.hover
-							)}
-						>
-							Delete Vibe
-						</motion.button>
-					) : null }
-					
-					
+				<div className="flex flex-row justify-end align-items-center">
 					{/* Submit Button */}
 					{ mode === 'edit' ? (
 						<>

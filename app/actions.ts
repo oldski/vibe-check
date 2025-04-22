@@ -4,6 +4,7 @@ import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import {getVibeProfileByUserId} from "@/lib/getVibeProfileByUserId";
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
@@ -44,7 +45,7 @@ export const signInAction = async (formData: FormData) => {
   const password = formData.get("password") as string;
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data:{user}, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -52,8 +53,14 @@ export const signInAction = async (formData: FormData) => {
   if (error) {
     return encodedRedirect("error", "/sign-in", error.message);
   }
+  
+  if (!user) {
+    return encodedRedirect("error", "/sign-in", "No user found");
+  }
+  
+  const profile = await getVibeProfileByUserId(user.id);
 
-  return redirect("/");
+  return redirect(`/v/${profile.handle}`);
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
@@ -67,7 +74,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
   }
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/callback?redirect_to=/protected/reset-password`,
+    redirectTo: `${origin}/auth/callback?redirect_to=/backstage/reset-password`,
   });
 
   if (error) {
@@ -99,7 +106,7 @@ export const resetPasswordAction = async (formData: FormData) => {
   if (!password || !confirmPassword) {
     encodedRedirect(
       "error",
-      "/protected/reset-password",
+      "/backstage/reset-password",
       "Password and confirm password are required",
     );
   }
@@ -107,7 +114,7 @@ export const resetPasswordAction = async (formData: FormData) => {
   if (password !== confirmPassword) {
     encodedRedirect(
       "error",
-      "/protected/reset-password",
+      "/backstage/reset-password",
       "Passwords do not match",
     );
   }
@@ -119,12 +126,12 @@ export const resetPasswordAction = async (formData: FormData) => {
   if (error) {
     encodedRedirect(
       "error",
-      "/protected/reset-password",
+      "/backstage/reset-password",
       "Password update failed",
     );
   }
 
-  encodedRedirect("success", "/protected/reset-password", "Password updated");
+  encodedRedirect("success", "/backstage/reset-password", "Password updated");
 };
 
 export const signOutAction = async () => {

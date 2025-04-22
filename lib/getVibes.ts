@@ -1,17 +1,28 @@
 import { Vibe } from './types'
 import { getSupabaseServerClient } from './supabase'
 
-export const getVibes = async (): Promise<Vibe[]> => {
+type OrderOptions = 'asc' | 'desc' | 'random';
+
+export const getVibes = async (order: OrderOptions = 'asc'): Promise<Vibe[]> => {
 	const supabase = await getSupabaseServerClient()
 	
-	const { data, error } = await supabase
+	let query = supabase
 	.from('vibes')
 	.select(`
       id,
       vibe_type,
       color_light,
       color_dark
-    `).order('vibe_type', { ascending: true });
+    `);
+	
+	if(order === 'random') {
+		query = query.order('RANDOM()');
+	} else {
+		const ascending = order === 'asc';
+		query = query.order('vibe_type', {ascending});
+	}
+	
+	const { data, error } = await query;
 	
 	if (error) {
 		console.error('Error fetching vibes:', error)

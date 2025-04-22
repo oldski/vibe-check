@@ -23,8 +23,6 @@ type VibeGridProps = {
 }
 export default function VibeGrid({ dailyVibes, vibes, handle, profile }: VibeGridProps) {
 	const { resolvedTheme } = useTheme();
-	const [selectedVibe, setSelectedVibe] = useState<DailyVibe | null>(null);
-	
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
 	
 	return (
