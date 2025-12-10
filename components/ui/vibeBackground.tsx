@@ -1,78 +1,91 @@
 'use client';
 
-import {useScroll, useTransform, motion, useSpring} from 'framer-motion';
-import type {Vibe} from '@/lib/types';
-import {useRef} from "react";
-import {clsx} from "clsx";
-import {cn} from "@/lib/utils";
+import { motion } from 'framer-motion';
+import type { Vibe } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 type VibeBackgroundProps = {
-	vibes: Vibe[]
-}
-const VibeBackground = ({vibes}: VibeBackgroundProps) => {
-	const ref = useRef(null);
-	const { scrollYProgress } = useScroll({
-		target: ref,
-		offset: ['start end', 'end start'],
-	});
-	
+	vibes: Vibe[];
+};
+
+const VibeBackground = ({ vibes }: VibeBackgroundProps) => {
 	const colorWeights = ['500', '600', '700', '800'];
-	const blocksNeeded = 24; // 4 rows x 9 cols
+	const blocksNeeded = 12;
 	
-	// Generate 36 vibe color blocks with random class variants
+	const images = [
+		{ filename: 'blockparty-street-panda.jpg' },
+		{ filename: 'friends-drinks-laughing.jpg' },
+		{ filename: 'friends-sun-group.jpg' },
+		{ filename: 'pool-inflatable.jpg' },
+		{ filename: 'blockparty-street-panda.jpg' },
+		{ filename: 'friends-drinks-laughing.jpg' },
+		{ filename: 'friends-sun-group.jpg' },
+		{ filename: 'pool-inflatable.jpg' },
+	];
+	
+	// Pick random blocks to get images
+	const imageIndexes = new Set<number>();
+	while (imageIndexes.size < images.length) {
+		imageIndexes.add(Math.floor(Math.random() * blocksNeeded));
+	}
+	const imageIndexArray = Array.from(imageIndexes);
+	
+	// Generate vibe-colored grid blocks
 	const grid = Array.from({ length: blocksNeeded }).map((_, i) => {
 		const vibe = vibes[i % vibes.length];
 		const vibeType = vibe.vibe_type.toLowerCase();
 		const weight = colorWeights[Math.floor(Math.random() * colorWeights.length)];
+		const hasImage = imageIndexArray.includes(i);
+		const image = hasImage ? images[imageIndexArray.indexOf(i)] : null;
+		
 		return {
 			id: `${vibe.vibe_type}-${i}`,
 			className: `bg-${vibeType}-${weight}`,
+			image,
 		};
 	});
 	
-	
-	// Group into rows based on column count (we’ll use CSS to control actual layout)
-	const rows = [];
-	const columns = 9; // Max for xl screen — layout will reflow on smaller screens
-	for (let i = 0; i < grid.length; i += columns) {
-		rows.push(grid.slice(i, i + columns));
-	}
-	
 	return (
-		<div ref={ref} className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-			<div className="flex flex-col w-full h-full justify-center">
-				{rows.map((row, rowIndex) => {
-					const direction = rowIndex % 2 === 0 ? 1 : -1;
-					const rawX = useTransform(scrollYProgress, [0, 1], [0, 60 * direction]);
-					const x = useSpring(rawX, { stiffness: 30, damping: 20 });
-					
-					// const paddedRow = [row[row.length - 1], ...row, row[0]];
-					
-					return (
+		<div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+			<div className="w-full h-full">
+				<div
+					className={cn(
+						'grid w-full',
+						'grid-cols-[repeat(auto-fit,minmax(300px,1fr))] grid-flow-row',
+						// 'w-[120%] h-full -ml-[10%]'
+					)}
+				>
+					{grid.map((block, index) => (
 						<motion.div
-							key={rowIndex}
-							style={{ x }}
-							className={cn(
-								'grid w-full overflow-hidden',
-								'grid-cols-[repeat(auto-fit,minmax(300px,1fr))] grid-flow-row w-full',
-								// 'grid-cols-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9',
-								'w-[120%] h-full -ml-[10%]'
-							)}
+							key={block.id}
+							className="relative aspect-square w-full overflow-hidden isolate"
+							initial={{ opacity: 0, scale: 0.95 }}
+							animate={{ opacity: 1, scale: 1 }}
+							transition={{
+								delay: Math.random() * 0.5,
+								duration: 0.6,
+								ease: 'easeOut',
+							}}
 						>
-							{row.map((block) => (
+							{/* Blurred image background */}
+							{block.image && (
 								<div
-									key={block.id}
-									className={cn(
-										'transition duration-300 ease-in-out',
-										'aspect-square',
-										'hover:opacity-80',
-										block.className
-									)}
+									className="absolute inset-0 z-0 bg-cover bg-center scale-105"
+									style={{ backgroundImage: `url(/images/${block.image.filename})` }}
 								/>
-							))}
+							)}
+							
+							{/* Color overlay */}
+							<div
+								className={cn(
+									"absolute inset-0 z-10 mix-blend-multiply pointer-events-none backdrop-blur-sm",
+									block.className
+								)}
+								style={{ opacity: 0.85 }}
+							/>
 						</motion.div>
-					);
-				})}
+					))}
+				</div>
 			</div>
 		</div>
 	);

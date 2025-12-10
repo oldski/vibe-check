@@ -5,7 +5,7 @@ A mood-tracking app that lets you log your daily vibe — inspired by the warmth
 ## 🧠 Concept
 
 Each day, you log a vibe:
-- Select an **emotion**
+- Select an **mood**
 - Add a short **message** (think tweet-style reflection)
 - Optionally upload an **image or video**
 - Drop in a **Spotify link** to capture the mood

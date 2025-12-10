@@ -281,7 +281,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("tailwind-scrollbar-hide")],
   safelist: [
     {
       pattern: /(bg|text|ring|hover|focus|active|placeholder|border|border-b|outline)-(happy|angry|brat|chill|reflective|appreciative|playful|anxious|overwhelmed|tired|lonely|loved|melancholy|motivated|optimistic|inspired)-(50|100|200|300|400|500|600|700|800|900|950)/,

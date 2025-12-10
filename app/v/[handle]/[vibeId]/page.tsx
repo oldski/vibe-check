@@ -1,27 +1,35 @@
 import { getVibeProfile } from "@/lib/getVibeProfile";
-import { cookies } from "next/headers";
+import { getSupabaseServerClient } from "@/lib/supabase";
 import { notFound } from "next/navigation";
-import {getDailyVibe} from "@/lib/getDailyVibe";
-import {getVibes} from "@/lib/getVibes";
-import VibeModalWrapper from "@/components/vibe/vibeModalWrapper";
+import { getDailyVibe } from "@/lib/getDailyVibe";
+import { getVibes } from "@/lib/getVibes";
+import VibePageLayout from "@/components/vibe/vibePageLayout";
 
-const VibePage = async ({ params }: { params: { handle: string; vibeId: string } }) => {
-	
-	const profile = await getVibeProfile(params.handle);
+type PageProps = {
+	params: Promise<{ handle: string; vibeId: string }>;
+};
+
+const VibePage = async ({ params }: PageProps) => {
+	const { handle, vibeId } = await params;
+
+	const supabase = await getSupabaseServerClient();
+	const { data: { user } } = await supabase.auth.getUser();
+
+	const profile = await getVibeProfile(handle);
 	if (!profile) notFound();
-	
-	const dailyVibe = await getDailyVibe(params.vibeId);
+
+	const dailyVibe = await getDailyVibe(vibeId);
 	if (!dailyVibe) notFound();
-	
+
 	const vibes = await getVibes();
-	
+
 	return (
-		<VibeModalWrapper
+		<VibePageLayout
 			key={dailyVibe.id}
 			vibes={vibes}
 			selectedVibe={dailyVibe}
-			userId={profile.id}
-			handle={params.handle}
+			userId={user?.id ?? ''}
+			handle={handle}
 			mode="view"
 		/>
 	);

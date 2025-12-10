@@ -1,16 +1,11 @@
-import DeployButton from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
-import HeaderAuth from "@/components/header-auth";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { hasEnvVars } from "@/utils/supabase/check-env-vars";
-import {Geist, Overpass, Overpass_Mono} from "next/font/google";
 import { ThemeProvider } from "next-themes";
-import Link from "next/link";
 import "./globals.css";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import {clsx} from "clsx";
-import {cn} from "@/lib/utils";
+import { clsx } from "clsx";
+import { cn } from "@/lib/utils";
+import { VibeHeaderProvider } from "@/contexts/vibeHeaderContext";
+import localFont from "next/font/local";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -18,19 +13,36 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
+  title: "VibeCheck",
   description: "The fastest way to build apps with Next.js and Supabase",
 };
 
-const overpass = Overpass({
-  display: "swap",
-  subsets: ["latin"],
-})
-
-const overpassMono = Overpass_Mono({
-  display: "swap",
-  subsets: ["latin"]
-})
+const clashDisplay = localFont({
+	src: [
+		{
+			path: "../public/fonts/ClashDisplay/ClashDisplay-Light.woff2",
+			weight: "300",
+			style: "normal",
+		},
+		{
+			path: "../public/fonts/ClashDisplay/ClashDisplay-Regular.woff2",
+			weight: "400",
+			style: "normal",
+		},
+		{
+			path: "../public/fonts/ClashDisplay/ClashDisplay-Semibold.woff2",
+			weight: "600",
+			style: "normal",
+		},
+		{
+			path: "../public/fonts/ClashDisplay/ClashDisplay-Bold.woff2",
+			weight: "700",
+			style: "normal",
+		},
+	],
+	variable: "--font-clash-display",
+	display: "swap",
+});
 
 export default function RootLayout({
   children,
@@ -39,7 +51,7 @@ export default function RootLayout({
 }>) {
   
   return (
-    <html lang="en" className={clsx(overpass.className)} suppressHydrationWarning>
+    <html lang="en" className={clsx(clashDisplay.className)} suppressHydrationWarning>
       <body className="bg-background text-foreground">
         <ThemeProvider
           attribute="class"
@@ -47,11 +59,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Header />
-          <main className="min-h-screen flex flex-col items-center relative">
-            {children}
-          </main>
-          <Footer />
+          <VibeHeaderProvider>
+            <Header />
+            <main className="min-h-screen flex flex-col items-center relative">
+              {children}
+            </main>
+            <Footer />
+          </VibeHeaderProvider>
         </ThemeProvider>
         <div className={cn(
           "bg-neutral-50",

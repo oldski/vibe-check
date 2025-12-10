@@ -1,66 +1,76 @@
 'use client';
-import { useRef, useState } from 'react';
-import {Vibe, VibeFormState} from '@/lib/types';
+
+import { useRef, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Vibe, VibeFormState } from '@/lib/types';
 import { clsx } from 'clsx';
 import { uploadVibeMedia } from '@/lib/uploadVibeMedia';
 import imageCompression from 'browser-image-compression';
-import { motion } from 'framer-motion';
-import {AudioLines, Backpack, Calendar, ChevronLeft, CircleX, ImagePlus, Pencil, SmilePlus, Trash2} from 'lucide-react';
-import { format } from 'date-fns';
-import { parseLocalDate } from '@/lib/date-utiles';
+import { ImagePlus, Trash2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { getVibeStyles } from '@/lib/getVibeStyles';
-import MotionLink from "@/components/ui/motionLink";
-import Link from "next/link";
-
-const INIT_VIBE_FORM = {
-	id: '',
-	vibe_date: format(new Date(), 'yyyy-MM-dd'),
-	message: '',
-	vibe: null,
-	audio: '',
-	media: '',
-};
+import { useVibeHeader } from '@/contexts/vibeHeaderContext';
+import InputCalendar from "@/components/ui/inputs/inputCalendar";
+import InputTextArea from "@/components/ui/inputs/inputTextArea";
+import SpotifyEmbed from "@/components/ui/spotifyEmbed";
+import InputAudio from "@/components/ui/inputs/inputAudio";
+import EmotionSelector from "@/components/ui/inputs/emotionSelector";
+import VibeFormActions from "./vibeFormActions";
+import DeleteConfirmDialog from "./deleteConfirmDialog";
 
 type VibeFormProps = {
 	form: VibeFormState;
 	setForm: React.Dispatch<React.SetStateAction<VibeFormState>>;
 	userId: string;
 	vibes: Vibe[];
-	onClose: () => void;
 	isOwner?: boolean;
 	vibeId?: string;
+	handle: string;
 	mode: 'view' | 'edit' | 'add';
 };
 
-const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode }: VibeFormProps) => {
+const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode }: VibeFormProps) => {
+	const router = useRouter();
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [success, setSuccess] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const dateInputRef = useRef<HTMLInputElement>(null);
-	
+
 	const { resolvedTheme } = useTheme();
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
 	const selectedVibe = vibes.find((v) => v.id === form.vibe);
 	const vibeType = selectedVibe?.vibe_type;
 	const vibeStyles = getVibeStyles(vibeType, currentTheme);
-	
-	const maxLength = 140;
-	const warnThreshold = Math.floor(maxLength * 0.7);
-	const dangerThreshold = Math.floor(maxLength * 0.95);
-	const today = format(new Date(), 'yyyy-MM-dd');
-	
+
+	const { setVibeHeader, clearVibeHeader } = useVibeHeader();
+
+	// Set header state for vibe pages (view, edit, add)
+	useEffect(() => {
+		setVibeHeader({
+			isVibePage: true,
+			handle,
+			vibeId,
+			isOwner,
+			vibeStyles: vibeStyles ? { bg: vibeStyles.bg, text: vibeStyles.text } : undefined,
+			onDelete: mode === 'view' ? () => setShowConfirm(true) : undefined,
+		});
+
+		return () => {
+			clearVibeHeader();
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mode, handle, vibeId, isOwner, vibeStyles?.bg, vibeStyles?.text]);
+
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 	};
-	
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsProcessing(true);
-		
+
 		const api = mode === 'edit' ? '/api/update-vibes' : '/api/send-vibes';
-		
+
 		try {
 			const res = await fetch(api, {
 				method: 'POST',
@@ -68,7 +78,11 @@ const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode
 			});
 			if (res.ok) {
 				setSuccess(true);
-				setForm(INIT_VIBE_FORM);
+				if (mode === 'add') {
+					router.push(`/v/${handle}`);
+				} else if (mode === 'edit') {
+					router.push(`/v/${handle}/${vibeId}`);
+				}
 			} else {
 				console.error('submission failed due to bad vibes');
 			}
@@ -78,23 +92,23 @@ const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode
 			setIsProcessing(false);
 		}
 	};
-	
+
 	const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
-		
+
 		const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
 		if (!allowedTypes.includes(file.type)) {
 			alert('Only JPG, PNG, WebP, or MP4 files are allowed.');
 			return;
 		}
-		
-		const maxSize = 15 * 1024 * 1024; // 15MB
+
+		const maxSize = 15 * 1024 * 1024;
 		if (file.size > maxSize) {
 			alert('File too large. Max is 15MB.');
 			return;
 		}
-		
+
 		const compressedFile = file.type.startsWith('image/')
 			? await imageCompression(file, {
 				maxSizeMB: 1,
@@ -102,7 +116,7 @@ const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode
 				useWebWorker: true,
 			})
 			: file;
-		
+
 		const uploadUrl = await uploadVibeMedia(compressedFile, userId, form.vibe_date);
 		if (uploadUrl) {
 			setForm((prev) => ({ ...prev, media: uploadUrl }));
@@ -110,335 +124,144 @@ const VibeForm = ({ form, setForm, userId, vibes, onClose, isOwner, vibeId, mode
 			alert('Upload failed');
 		}
 	};
-	
-	function extractSpotifyTrackId(url: string) {
-		const match = url.match(/track\/([a-zA-Z0-9]+)/);
-		return match ? match[1] : null;
-	}
-	
+
 	const handleDelete = async () => {
 		const res = await fetch('/api/delete-vibes', {
 			method: 'POST',
-			body: JSON.stringify({
-				id: form.id})
+			body: JSON.stringify({ id: form.id })
 		});
-		
+
 		if (res.ok) {
 			setShowConfirm(false);
-			onClose(); // close modal
-			// You could also trigger a toast here like: toast.success('Vibe deleted!')
+			router.push(`/v/${handle}`);
 		} else {
 			console.error('Failed to delete vibe');
 		}
-	}
-	
+	};
+
+	const isViewMode = mode === 'view';
+	const isEditMode = mode === 'add' || mode === 'edit';
+
 	return (
-		<form onSubmit={handleSubmit} className={clsx('flex flex-col justify-between h-full gap-6', vibeStyles?.text)}>
-			
-			
-				<div className={clsx("fixed top-6 left-6 z-50 px-5 py-3 rounded-full shadow-lg transition flex items-center justify-items-center gap-3 text-sm", vibeStyles?.bg)}>
-					<MotionLink href={`/v/oldski/`} title="back to vibe"><ChevronLeft /></MotionLink>
-					{ isOwner && (
-						<>
-							<MotionLink href={`/v/oldski/${vibeId}/edit`} className={clsx(mode === 'edit' && 'bg-black rounded-full text-white')} title="edit vibe"><Pencil /></MotionLink>
-							<button type="button" onClick={() => setShowConfirm(true)} title="delete vibe"><Trash2 /></button>
-						</>
-					)}
-				</div>
-			
-			
-			{/* Date Field */}
-			<div className={clsx('flex items-center justify-end gap-2 text-lg md:text-2xl font-bold text-right')}>
-				<span>{format(parseLocalDate(form.vibe_date), 'MM/dd/yyyy')}</span>
-				{mode === 'view' ? (
-					<Calendar className={clsx(vibeStyles?.text)} />
-				) : (
-					<button
-						type="button"
-						onClick={() => dateInputRef.current?.showPicker?.() || dateInputRef.current?.focus()}
-						className={clsx('hover:opacity-70', vibeStyles?.text)}
-					>
-						<Calendar />
-					</button>
-				)}
-				
-				<input
-					type="date"
-					ref={dateInputRef}
-					name="vibe_date"
-					value={form.vibe_date}
-					onChange={handleChange}
-					max={today}
-					className="sr-only"
-				/>
-			</div>
-			
-			{/* Vibe Selector */}
-			{mode !== 'view' && (
-				<div className="flex flex-wrap gap-2">
-					{vibes.map((v) => {
-						const isSelected = form.vibe === v.id;
-						const isActiveStyle = isSelected ? vibeStyles : undefined;
-						
-						return (
-							<motion.button
-								key={v.id}
-								type="button"
-								onClick={() => setForm((prev) => ({ ...prev, vibe: v.id }))}
-								className={clsx(
-									'px-4 py-2 rounded-full text-xs font-semibold tracking-wide uppercase',
-									v.vibe_type === vibeType ? vibeStyles?.ring : vibeStyles?.vibeButton,
-								)}
-								whileTap={{ scale: 0.95 }}
-								whileHover={{ scale: 1.07, boxShadow: '0 0 0 2px rgba(0,0,0,0.1)' }}
-							>
-								{v.vibe_type}
-							</motion.button>
-						);
-					})}
-				</div>
-			)}
-			
-			{/* Message */}
-			<div>
-				{ mode !== 'view' && (
-					<>
-						<textarea
-							name="message"
-							placeholder="Today felt like..."
-							value={form.message}
-							onChange={handleChange}
-							maxLength={maxLength}
-							className={clsx(
-								'w-full resize-none text-2xl font-bold bg-transparent border-b',
-								vibeStyles?.text,
-								vibeStyles?.ring,
-								'focus:outline-none',
-								vibeStyles?.borderBottom,
-								vibeStyles?.placeholder,
-							)}
-							rows={3}
-						/>
-						<div
-							className={clsx(
-								'inline-block p-1 rounded-full text-xs font-mono bg-white',
-								form.message.length >= dangerThreshold
-									? 'text-red-500'
-									: form.message.length >= warnThreshold
-										? 'text-yellow-500'
-										: 'text-green-500'
-							)}
-						>
-							{form.message.length} / {maxLength}
-						</div>
-					</>
-				)}
-			</div>
-			
-			{mode === 'view' && (
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-					<div className="flex flex-col gap-2">
-						<div className={clsx('w-full resize-none text-3xl font-bold bg-transparent', vibeStyles?.text,)}>{form.message}</div>
-						<div className={clsx('text-xs tracking-widest uppercase font-bold opacity-30', vibeStyles?.text)}>{vibeType}</div>
+		<form onSubmit={handleSubmit} className={clsx(
+			'flex flex-col h-full w-full',
+			vibeStyles?.text
+		)}>
+			{/* View Mode: Matching form layout */}
+			{isViewMode ? (
+				<div className="flex flex-col h-full">
+					{/* Top row: Date on right */}
+					<div className="flex justify-end mb-4">
+						<InputCalendar vibeDate={form.vibe_date} vibeType={vibeType} mode={mode} onHandleChange={handleChange} />
 					</div>
-					
-					{/* Spotify Embed */}
-					{form.audio && extractSpotifyTrackId(form.audio) && (
-						<motion.div
-							initial={{ opacity: 0, y: 12 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.6, ease: 'easeOut' }}
-						>
-							<iframe
-								src={`https://open.spotify.com/embed/track/${extractSpotifyTrackId(form.audio)}`}
-								width="100%"
-								height="80"
-								className="rounded-lg shadow"
-								frameBorder="0"
-								allow="encrypted-media"
-							/>
-						</motion.div>
-					)}
-				</div>
-			)}
-			
-			{/* Media Row */}
-			{mode !== 'view' && (
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-				{/* Image Upload */}
-				<div className="flex">
-					{form.media ? (
-						<div className="relative">
-							<img src={form.media} alt="preview" className="h-24 w-24 object-cover rounded-lg shadow" />
-							<button
-								type="button"
-								onClick={() => setForm((prev) => ({ ...prev, media: '' }))}
-								// className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full"
-								className={clsx('absolute top-1 right-1 p-1 rounded-full hover:opacity-70', vibeStyles?.text)}
-							>
-								<Trash2 size={16} />
-							</button>
-						</div>
-					) : (
-						<button
-							type="button"
-							onClick={() => fileInputRef.current?.click()}
-							className={clsx('hover:opacity-70', vibeStyles?.text)}
-							
-						>
-							<ImagePlus size={24} />
-						</button>
-					)}
-					<input
-						ref={fileInputRef}
-						type="file"
-						name="media"
-						accept="image/*,video/*"
-						onChange={handleFileUpload}
-						className="hidden"
-					/>
-				</div>
-				
-				{/* Audio */}
-				<div className="flex flex-col gap-4">
-					<div className={clsx("flex items-center gap-2 py-2 border-b", vibeStyles?.borderBottom)}>
-            <span className={clsx('hover:opacity-70 p-1', vibeStyles?.text)}>
-              <AudioLines />
-            </span>
-						<input
-							type="url"
-							name="audio"
-							placeholder="Drop a Spotify link"
-							value={form.audio}
-							onChange={handleChange}
-							className={clsx(
-								'w-full bg-transparent text-sm focus:outline-none',
-								vibeStyles?.text,
-								vibeStyles?.placeholder
-							)}
-							autoComplete="off"
-						/>
+
+					{/* Message section - flex-1 to fill space, justify-end to push content to bottom */}
+					<div className="flex-1 flex flex-col justify-end">
+						<InputTextArea vibeMessage={form.message} mode={mode} onHandleChange={handleChange} />
+					</div>
+
+					{/* Bottom section: Vibe type + Audio */}
+					<div className="flex items-center justify-between mt-4">
+						{/* Subtle Vibe Type - matching vibeGrid style */}
+						<span className={clsx(
+							"text-xs tracking-widest uppercase font-bold opacity-30",
+							vibeStyles?.text
+						)}>
+							{vibeType}
+						</span>
+
+						{/* Audio/Spotify */}
 						{form.audio && (
-							<button
-								type="button"
-								onClick={() => setForm((prev) => ({ ...prev, audio: '' }))}
-								className={clsx('hover:opacity-70 p-1 rounded-full', vibeStyles?.text)}
-								title="Remove track"
-							>
-								<CircleX size={16} />
-							</button>
+							<div className="w-64">
+								<SpotifyEmbed vibeAudio={form.audio} />
+							</div>
 						)}
 					</div>
-					
-					{/* Spotify Embed */}
-					{form.audio && extractSpotifyTrackId(form.audio) && (
-						<motion.div
-							initial={{ opacity: 0, y: 12 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.6, ease: 'easeOut' }}
-						>
-							<iframe
-								src={`https://open.spotify.com/embed/track/${extractSpotifyTrackId(form.audio)}`}
-								width="100%"
-								height="80"
-								className="rounded-lg shadow"
-								frameBorder="0"
-								allow="encrypted-media"
-							/>
-						</motion.div>
-					)}
 				</div>
-			</div>
-			)}
-			
-			{mode !== 'view' && (
-				<div className="flex flex-row justify-end align-items-center">
-					{/* Submit Button */}
-					{ mode === 'edit' ? (
-						<>
-							<motion.button
-								type="submit"
-								disabled={isProcessing}
-								whileHover={{ scale: 1.05 }}
-								whileTap={{ scale: 0.95 }}
-								transition={{ type: 'spring', stiffness: 300 }}
-								className={clsx(
-									'self-end mt-4 px-6 py-2 rounded-full font-semibold shadow-md',
-									vibeStyles?.bg,
-									vibeStyles?.text,
-									vibeStyles?.hover,
-									vibeStyles?.focus,
-									vibeStyles?.active,
-									vibeStyles?.ring,
-									vibeStyles?.disabled,
-									vibeStyles?.transition
-								)}
-							>
-								{isProcessing ? 'Processing...' : 'Edit Vibe'}
-							</motion.button>
-							
-							{success && <p className="text-green-600 text-sm">Vibe Updated!</p>}
-						</>
-					) : (
-						<>
-							<motion.button
-								type="submit"
-								disabled={isProcessing}
-								whileHover={{ scale: 1.05 }}
-								whileTap={{ scale: 0.95 }}
-								transition={{ type: 'spring', stiffness: 300 }}
-								className={clsx(
-									'self-end mt-4 px-6 py-2 rounded-full font-semibold shadow-md',
-									vibeStyles?.bg,
-									vibeStyles?.text,
-									vibeStyles?.hover,
-									vibeStyles?.focus,
-									vibeStyles?.active,
-									vibeStyles?.ring,
-									vibeStyles?.disabled,
-									vibeStyles?.transition
-								)}
-							>
-								{isProcessing ? 'Processing...' : 'Submit Vibe'}
-							</motion.button>
-				
-							{success && <p className="text-green-600 text-sm">Vibe added!</p>}
-						</>
-					)}
-				</div>
-			)}
-			
-			{showConfirm && (
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					exit={{ opacity: 0 }}
-					className={clsx(
-						"fixed bottom-6 right-6 p-6 rounded-lg shadow-lg z-50",
-						"flex flex-col gap-2 items-start",
-						vibeStyles?.bg,
-						vibeStyles?.text,
-						vibeStyles?.ring
-					)}
-				>
-					<p className="text-sm font-medium">Are you sure you want to delete this vibe?</p>
-					<div className="flex gap-2 mt-2">
-						<button
-							type="button"
-							onClick={handleDelete}
-							className={clsx("px-3 py-1 rounded text-sm", vibeStyles?.ring, vibeStyles?.text)}
-						>
-							Yes, Delete
-						</button>
-						<button
-							onClick={() => setShowConfirm(false)}
-							className="text-sm px-3 py-1 rounded bg-zinc-200 dark:bg-zinc-700"
-						>
-							Cancel
-						</button>
+			) : (
+				<div className="flex flex-col h-full">
+					{/* Top row: Date on right */}
+					<div className="flex justify-end mb-4">
+						<InputCalendar vibeDate={form.vibe_date} vibeType={vibeType} mode={mode} onHandleChange={handleChange} />
 					</div>
-				</motion.div>
+
+					{/* Emotion Selector with arrows */}
+					<EmotionSelector
+						vibes={vibes}
+						selectedVibeId={form.vibe}
+						onSelect={(vibeId) => setForm((prev) => ({ ...prev, vibe: vibeId }))}
+					/>
+
+					{/* Message section */}
+					<div className="mt-6 flex-1 flex flex-col">
+						<label className={clsx(
+							"text-sm font-medium mb-2",
+							vibeStyles?.text
+						)}>
+							Today felt like...
+						</label>
+						<InputTextArea vibeMessage={form.message} mode={mode} onHandleChange={handleChange} />
+					</div>
+
+					{/* Bottom section: Image + Spotify */}
+					<div className="flex items-center gap-8 mt-6">
+						{/* Image Upload */}
+						<div className="flex items-center gap-2">
+							{form.media ? (
+								<div className="relative">
+									<img src={form.media} alt="preview" className="h-16 w-16 object-cover rounded-lg shadow" />
+									<button
+										type="button"
+										onClick={() => setForm((prev) => ({ ...prev, media: '' }))}
+										className={clsx('absolute -top-2 -right-2 p-1 rounded-full bg-black/50 hover:opacity-70', vibeStyles?.text)}
+									>
+										<Trash2 size={12} />
+									</button>
+								</div>
+							) : (
+								<button
+									type="button"
+									onClick={() => fileInputRef.current?.click()}
+									className={clsx('hover:opacity-70 flex items-center gap-2', vibeStyles?.text)}
+								>
+									<ImagePlus size={20} />
+									<span className="text-sm">Image</span>
+								</button>
+							)}
+							<input
+								ref={fileInputRef}
+								type="file"
+								name="media"
+								accept="image/*,video/*"
+								onChange={handleFileUpload}
+								className="hidden"
+							/>
+						</div>
+
+						{/* Audio/Spotify */}
+						<InputAudio vibeAudio={form.audio} vibeType={vibeType} mode={mode} onSetForm={setForm} onHandleChange={handleChange} />
+					</div>
+
+					{/* Submit Actions - pushed to bottom */}
+					<div className="mt-auto pt-6">
+						<VibeFormActions
+							mode={mode}
+							isProcessing={isProcessing}
+							success={success}
+							vibeStyles={vibeStyles ?? undefined}
+							onCancel={mode === 'edit' && vibeId ? () => router.push(`/v/${handle}/${vibeId}`) : undefined}
+						/>
+					</div>
+				</div>
 			)}
+
+			{/* Delete Confirmation Dialog */}
+			<DeleteConfirmDialog
+				isOpen={showConfirm}
+				onConfirm={handleDelete}
+				onCancel={() => setShowConfirm(false)}
+				vibeStyles={vibeStyles ?? undefined}
+			/>
 		</form>
 	);
 };
