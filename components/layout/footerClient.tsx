@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, useRef, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 
 type FooterClientProps = {
@@ -8,22 +8,39 @@ type FooterClientProps = {
 };
 
 const HOTSPOT_HEIGHT = 60; // pixels from bottom to trigger footer
+const TOUCH_HOTSPOT_HEIGHT = 80; // larger area for touch
 
 const FooterClient = ({ children }: FooterClientProps) => {
 	const [isVisible, setIsVisible] = useState(false);
+	const isVisibleRef = useRef(isVisible);
+
+	// Keep ref in sync with state
+	useEffect(() => {
+		isVisibleRef.current = isVisible;
+	}, [isVisible]);
 
 	useEffect(() => {
-		// Start hidden
-		setIsVisible(false);
-
 		const handleMouseMove = (e: MouseEvent) => {
 			const isInHotspot = window.innerHeight - e.clientY <= HOTSPOT_HEIGHT;
 			setIsVisible(isInHotspot);
 		};
 
-		const handleTouchStart = () => {
-			// Toggle on tap
-			setIsVisible(prev => !prev);
+		const handleTouchStart = (e: TouchEvent) => {
+			// Ignore touches on swipeable elements (like emotion selector)
+			const target = e.target as HTMLElement;
+			if (target.closest('[data-swipeable]')) return;
+
+			// Only toggle when touching near the bottom edge
+			const touch = e.touches[0];
+			if (!touch) return;
+
+			const isInHotspot = window.innerHeight - touch.clientY <= TOUCH_HOTSPOT_HEIGHT;
+			if (isInHotspot) {
+				setIsVisible(prev => !prev);
+			} else if (isVisibleRef.current) {
+				// Hide if tapping elsewhere while visible
+				setIsVisible(false);
+			}
 		};
 
 		const handleMouseLeave = () => {
@@ -31,7 +48,7 @@ const FooterClient = ({ children }: FooterClientProps) => {
 		};
 
 		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('touchstart', handleTouchStart);
+		window.addEventListener('touchstart', handleTouchStart, { passive: true });
 		document.addEventListener('mouseleave', handleMouseLeave);
 
 		return () => {

@@ -14,16 +14,27 @@ type EmotionSelectorProps = {
 	onSelect: (vibeId: number) => void;
 };
 
-// Throttle delay in milliseconds - controls how fast emotions can change
-const THROTTLE_DELAY = 300;
+// Throttle delays - mobile is more responsive
+const THROTTLE_DELAY_DESKTOP = 300;
+const THROTTLE_DELAY_MOBILE = 150;
+
+// Swipe distances - mobile requires less distance
+const MIN_SWIPE_DESKTOP = 80;
+const MIN_SWIPE_MOBILE = 30;
 
 const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorProps) => {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+	const [isTouchDevice, setIsTouchDevice] = useState(false);
 	const lastChangeRef = useRef<number>(0);
 
 	const { resolvedTheme } = useTheme();
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+	// Detect touch device on mount
+	useEffect(() => {
+		setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+	}, []);
 
 	// Get vibe styles for the current emotion
 	const currentVibe = vibes[currentIndex];
@@ -37,15 +48,16 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 		}
 	}, [selectedVibeId, vibes]);
 
-	// Throttled navigation - prevents rapid changes
+	// Throttled navigation - prevents rapid changes (more responsive on mobile)
 	const canChange = useCallback(() => {
 		const now = Date.now();
-		if (now - lastChangeRef.current < THROTTLE_DELAY) {
+		const delay = isTouchDevice ? THROTTLE_DELAY_MOBILE : THROTTLE_DELAY_DESKTOP;
+		if (now - lastChangeRef.current < delay) {
 			return false;
 		}
 		lastChangeRef.current = now;
 		return true;
-	}, []);
+	}, [isTouchDevice]);
 
 	const goToNext = useCallback(() => {
 		if (!canChange()) return;
@@ -77,7 +89,9 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [goToNext, goToPrev]);
 
-	// Touch/swipe support
+	// Touch/swipe support - also handles touches from parent [data-swipeable] container
+	const containerRef = useRef<HTMLDivElement>(null);
+
 	const handleTouchStart = (e: React.TouchEvent) => {
 		setTouchStart({
 			x: e.touches[0].clientX,
@@ -95,7 +109,8 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 
 		const deltaX = touchEnd.x - touchStart.x;
 		const deltaY = touchEnd.y - touchStart.y;
-		const minSwipeDistance = 80; // Require more deliberate swipe
+		// Mobile uses smaller swipe distance for easier swiping
+		const minSwipeDistance = isTouchDevice ? MIN_SWIPE_MOBILE : MIN_SWIPE_DESKTOP;
 
 		// Determine if horizontal or vertical swipe
 		if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -111,7 +126,46 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 		setTouchStart(null);
 	};
 
-	// Wheel/scroll support for desktop - require minimum scroll amount
+	// Also listen for touches on parent [data-swipeable] container
+	useEffect(() => {
+		if (!isTouchDevice) return;
+
+		const container = containerRef.current;
+		const swipeableParent = container?.closest('[data-swipeable]') as HTMLElement | null;
+		if (!swipeableParent) return;
+
+		let startPos: { x: number; y: number } | null = null;
+
+		const onTouchStart = (e: TouchEvent) => {
+			startPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+		};
+
+		const onTouchEnd = (e: TouchEvent) => {
+			if (!startPos) return;
+			const endPos = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+			const deltaX = endPos.x - startPos.x;
+			const deltaY = endPos.y - startPos.y;
+
+			if (Math.abs(deltaX) > Math.abs(deltaY)) {
+				if (deltaX > MIN_SWIPE_MOBILE) goToPrev();
+				else if (deltaX < -MIN_SWIPE_MOBILE) goToNext();
+			} else {
+				if (deltaY > MIN_SWIPE_MOBILE) goToNext();
+				else if (deltaY < -MIN_SWIPE_MOBILE) goToPrev();
+			}
+			startPos = null;
+		};
+
+		swipeableParent.addEventListener('touchstart', onTouchStart, { passive: true });
+		swipeableParent.addEventListener('touchend', onTouchEnd, { passive: true });
+
+		return () => {
+			swipeableParent.removeEventListener('touchstart', onTouchStart);
+			swipeableParent.removeEventListener('touchend', onTouchEnd);
+		};
+	}, [isTouchDevice, goToNext, goToPrev]);
+
+	// Wheel/scroll support for desktop only - require minimum scroll amount
 	const handleWheel = useCallback((e: WheelEvent) => {
 		e.preventDefault();
 		const minDelta = 30; // Minimum scroll amount to trigger change
@@ -120,16 +174,21 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 	}, [goToNext, goToPrev]);
 
 	useEffect(() => {
+		// Only add wheel listener on desktop to avoid interfering with mobile scrolling
+		if (isTouchDevice) return;
+
 		// Add wheel listener with passive: false to allow preventDefault
 		window.addEventListener('wheel', handleWheel, { passive: false });
 		return () => window.removeEventListener('wheel', handleWheel);
-	}, [handleWheel]);
+	}, [handleWheel, isTouchDevice]);
 
 	if (!currentVibe) return null;
 
 	return (
 		<div
+			ref={containerRef}
 			className="flex items-center gap-3"
+			style={{ touchAction: 'manipulation' }}
 			onTouchStart={handleTouchStart}
 			onTouchEnd={handleTouchEnd}
 		>

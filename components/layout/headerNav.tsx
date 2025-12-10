@@ -1,7 +1,7 @@
 import { signOutAction } from "@/app/actions";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
-import { User, LogOut, Settings } from "lucide-react";
+import { User, LogOut, Settings, Compass } from "lucide-react";
 
 export default async function HeaderNav() {
   const supabase = await createClient();
@@ -24,6 +24,13 @@ export default async function HeaderNav() {
   if (user) {
     return (
       <nav className="flex items-center gap-6">
+        <Link
+          href="/discover"
+          className="text-sm hover:opacity-70 transition-opacity inline-flex items-center gap-2"
+        >
+          <Compass size={16} className="shrink-0" />
+          <span className="hidden sm:inline leading-none">Discover</span>
+        </Link>
         {handle && (
           <Link
             href={`/v/${handle}`}
@@ -55,6 +62,13 @@ export default async function HeaderNav() {
 
   return (
     <nav className="flex items-center gap-4">
+      <Link
+        href="/discover"
+        className="text-sm hover:opacity-70 transition-opacity inline-flex items-center gap-2"
+      >
+        <Compass size={16} className="shrink-0" />
+        <span className="hidden sm:inline leading-none">Discover</span>
+      </Link>
       <Link
         href="/sign-in"
         className="text-sm hover:opacity-70 transition-opacity"

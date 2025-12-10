@@ -1,16 +1,19 @@
 'use client';
 
-import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import FooterClient from './footerClient';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 
-const vibeColors = ['happy', 'chill', 'motivated', 'loved', 'inspired'];
+// Use explicit class names to avoid hydration mismatch with dynamic theme detection
+const vibeColorClasses = [
+  { name: 'happy', light: 'bg-happy-400', dark: 'dark:bg-happy-600' },
+  { name: 'chill', light: 'bg-chill-400', dark: 'dark:bg-chill-600' },
+  { name: 'motivated', light: 'bg-motivated-400', dark: 'dark:bg-motivated-600' },
+  { name: 'loved', light: 'bg-loved-400', dark: 'dark:bg-loved-600' },
+  { name: 'inspired', light: 'bg-inspired-400', dark: 'dark:bg-inspired-600' },
+];
 
 const Footer = () => {
-  const { resolvedTheme } = useTheme();
-  const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
-
   return (
     <FooterClient>
       <div className="w-full flex items-center justify-between">
@@ -19,12 +22,13 @@ const Footer = () => {
         </p>
         <div className="flex items-center gap-4">
           <div className="flex gap-1.5">
-            {vibeColors.map((vibe) => (
+            {vibeColorClasses.map((vibe) => (
               <div
-                key={vibe}
+                key={vibe.name}
                 className={cn(
                   "w-3 h-3 rounded-sm",
-                  currentTheme === 'light' ? `bg-${vibe}-400` : `bg-${vibe}-600`
+                  vibe.light,
+                  vibe.dark
                 )}
               />
             ))}

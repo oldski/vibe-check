@@ -19,6 +19,7 @@ import InputAudio from "@/components/ui/inputs/inputAudio";
 import EmotionSelector from "@/components/ui/inputs/emotionSelector";
 import VibeFormActions from "./vibeFormActions";
 import DeleteConfirmDialog from "./deleteConfirmDialog";
+import ShareMenu from "@/components/ui/shareMenu";
 
 type VibeFormProps = {
 	form: VibeFormState;
@@ -29,6 +30,7 @@ type VibeFormProps = {
 	vibeId?: string;
 	handle: string;
 	mode: 'view' | 'edit' | 'add';
+	onExport?: () => void;
 };
 
 type ValidationErrors = {
@@ -37,11 +39,12 @@ type ValidationErrors = {
 	vibe_date?: string;
 };
 
-const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode }: VibeFormProps) => {
+const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode, onExport }: VibeFormProps) => {
 	const router = useRouter();
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [success, setSuccess] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
+	const [showShareMenu, setShowShareMenu] = useState(false);
 	const [errors, setErrors] = useState<ValidationErrors>({});
 	const [touched, setTouched] = useState<Record<string, boolean>>({});
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +61,26 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 	// Use context for optimistic updates when available
 	const vibesContext = useVibesSafe();
 
+	// Share handler - shows native share on mobile, share menu on desktop
+	const handleShare = async () => {
+		// Try native share API first (mobile/modern browsers)
+		if (navigator.share) {
+			const url = `${window.location.origin}/v/${handle}/${vibeId}`;
+			const title = `Vibe Check - ${vibeType}`;
+			const text = form.message.length > 100 ? form.message.slice(0, 100) + '...' : form.message;
+			try {
+				await navigator.share({ title, text, url });
+				return;
+			} catch (err) {
+				// User cancelled or share failed, fall back to share menu
+				if ((err as Error).name === 'AbortError') return;
+			}
+		}
+
+		// Fall back to share menu on desktop
+		setShowShareMenu(true);
+	};
+
 	// Set header state for vibe pages (view, edit, add)
 	useEffect(() => {
 		setVibeHeader({
@@ -67,13 +90,15 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 			isOwner,
 			vibeStyles: vibeStyles ? { bg: vibeStyles.bg, text: vibeStyles.text } : undefined,
 			onDelete: mode === 'view' ? () => setShowConfirm(true) : undefined,
+			onShare: mode === 'view' && vibeId ? handleShare : undefined,
+			onExport: mode === 'view' && onExport ? onExport : undefined,
 		});
 
 		return () => {
 			clearVibeHeader();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [mode, handle, vibeId, isOwner, vibeStyles?.bg, vibeStyles?.text]);
+	}, [mode, handle, vibeId, isOwner, vibeStyles?.bg, vibeStyles?.text, onExport]);
 
 	// Validation function
 	const validateForm = (): ValidationErrors => {
@@ -287,24 +312,27 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 					</div>
 				</div>
 			) : (
-				<div className="flex flex-col h-full">
-					{/* Top row: Date on right */}
-					<div className="flex justify-end mb-4">
-						<InputCalendar vibeDate={form.vibe_date} vibeType={vibeType} mode={mode} onHandleChange={handleChange} />
-					</div>
+				<div className="flex flex-col h-full overflow-hidden">
+					{/* Swipeable top section - date + emotion selector */}
+					<div data-swipeable="true" className="flex-shrink-0">
+						{/* Top row: Date on right */}
+						<div className="flex justify-end mb-4">
+							<InputCalendar vibeDate={form.vibe_date} vibeType={vibeType} mode={mode} onHandleChange={handleChange} />
+						</div>
 
-					{/* Emotion Selector with arrows */}
-					<EmotionSelector
-						vibes={vibes}
-						selectedVibeId={form.vibe}
-						onSelect={(vibeId) => {
-							setForm((prev) => ({ ...prev, vibe: vibeId }));
-							// Clear vibe error when a vibe is selected
-							if (errors.vibe) {
-								setErrors((prev) => ({ ...prev, vibe: undefined }));
-							}
-						}}
-					/>
+						{/* Emotion Selector with arrows */}
+						<EmotionSelector
+							vibes={vibes}
+							selectedVibeId={form.vibe}
+							onSelect={(vibeId) => {
+								setForm((prev) => ({ ...prev, vibe: vibeId }));
+								// Clear vibe error when a vibe is selected
+								if (errors.vibe) {
+									setErrors((prev) => ({ ...prev, vibe: undefined }));
+								}
+							}}
+						/>
+					</div>
 
 					{/* Message section */}
 					<div className="mt-6 flex-1 flex flex-col justify-end">
@@ -376,6 +404,16 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 				onConfirm={handleDelete}
 				onCancel={() => setShowConfirm(false)}
 				vibeStyles={vibeStyles ?? undefined}
+			/>
+
+			{/* Share Menu */}
+			<ShareMenu
+				isOpen={showShareMenu}
+				onClose={() => setShowShareMenu(false)}
+				url={`${typeof window !== 'undefined' ? window.location.origin : ''}/v/${handle}/${vibeId}`}
+				title={`Vibe Check - ${vibeType}`}
+				text={form.message.length > 100 ? form.message.slice(0, 100) + '...' : form.message}
+				vibeStyles={vibeStyles ? { text: vibeStyles.text } : undefined}
 			/>
 		</form>
 	);

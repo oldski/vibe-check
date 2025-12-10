@@ -42,3 +42,10 @@ next-env.d.ts
 
 # claude code
 CLAUDE.md
+
+# supabase
+supabase/.temp/
+
+# local planning & design
+ROADMAP.md
+public/mockup.png

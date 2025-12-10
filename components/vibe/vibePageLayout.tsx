@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { format } from 'date-fns';
 import { clsx } from 'clsx';
+import html2canvas from 'html2canvas';
 import { DailyVibe, Vibe, VibeFormState } from '@/lib/types';
 import { getVibeStyles } from '@/lib/getVibeStyles';
 import VibeForm from './vibeForm';
+import { useToast } from '@/contexts/toastContext';
 
 type VibePageLayoutProps = {
 	selectedVibe?: DailyVibe;
@@ -26,11 +28,18 @@ export default function VibePageLayout({
 }: VibePageLayoutProps) {
 	const [form, setForm] = useState<VibeFormState | null>(null);
 	const [mounted, setMounted] = useState(false);
+	const captureRef = useRef<HTMLDivElement>(null);
 
 	const { resolvedTheme } = useTheme();
+	const { addToast } = useToast();
 
 	useEffect(() => {
 		setMounted(true);
+		// Lock body scroll when vibe page is open
+		document.body.style.overflow = 'hidden';
+		return () => {
+			document.body.style.overflow = '';
+		};
 	}, []);
 
 	// Wait for mount to get accurate theme - resolvedTheme is undefined during SSR
@@ -71,12 +80,47 @@ export default function VibePageLayout({
 		: `bg-${vibeType}-400`;
 	const hasImage = form?.media && form.media.match(/\.(jpg|jpeg|png|webp)$/i);
 
+	// Export handler for capturing vibe as image
+	const handleExport = useCallback(async () => {
+		if (!captureRef.current) return;
+
+		try {
+			addToast('Preparing image...', 'info');
+
+			const canvas = await html2canvas(captureRef.current, {
+				backgroundColor: null,
+				scale: 2, // Higher quality
+				useCORS: true, // For cross-origin images
+				logging: false,
+			});
+
+			// Convert to blob and download
+			canvas.toBlob((blob) => {
+				if (!blob) {
+					addToast('Failed to create image', 'error');
+					return;
+				}
+
+				const url = URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.download = `vibe-${form?.vibe_date || 'export'}.png`;
+				link.href = url;
+				link.click();
+				URL.revokeObjectURL(url);
+				addToast('Image downloaded', 'success');
+			}, 'image/png');
+		} catch (err) {
+			console.error('Export failed:', err);
+			addToast('Failed to export image', 'error');
+		}
+	}, [addToast, form?.vibe_date]);
+
 	if (!form || !mounted) return null;
 
 	const isEditMode = mode === 'add' || mode === 'edit';
 
 	return (
-		<div className="fixed inset-0 z-30 overflow-hidden">
+		<div ref={captureRef} className="fixed inset-0 z-30 overflow-hidden">
 			{/* Animated Background */}
 			<div className="absolute inset-0 z-0">
 				{/* Base color layer */}
@@ -129,6 +173,7 @@ export default function VibePageLayout({
 						vibeId={form.id}
 						handle={handle}
 						mode={mode}
+						onExport={mode === 'view' ? handleExport : undefined}
 					/>
 				</div>
 			</motion.div>

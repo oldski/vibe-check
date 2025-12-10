@@ -1,7 +1,8 @@
 'use client'
 
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'
-import type { DailyVibe, Vibe } from '@/lib/types'
+import type { DailyVibe, Vibe, Profile, FollowCounts } from '@/lib/types'
 import { useTheme } from "next-themes";
 import { format, parseISO } from "date-fns";
 import { Calendar, Music, Loader2 } from "lucide-react";
@@ -9,24 +10,55 @@ import Link from "next/link";
 import { getVibeStyles } from '@/lib/getVibeStyles';
 import { cn } from "@/lib/utils";
 import { useVibesSafe } from '@/contexts/vibesContext';
+import VibeFiltersComponent from './vibeFilters';
+import ProfileGridCard from './profileGridCard';
 
 type VibeGridProps = {
 	vibes: Vibe[];
 	handle: string;
-	profile: {
-		id: string;
-		display_name: string | null;
-		created_at: string;
-	};
+	profile: Profile;
 	initialVibes?: DailyVibe[];
+	showFilters?: boolean;
+	currentUserId?: string | null;
+	isOwner?: boolean;
+	initialIsFollowing?: boolean;
+	initialFollowCounts?: FollowCounts;
 }
-export default function VibeGrid({ vibes, handle, profile, initialVibes = [] }: VibeGridProps) {
+
+export default function VibeGrid({
+	vibes,
+	handle,
+	profile,
+	initialVibes = [],
+	showFilters = true,
+	currentUserId,
+	isOwner = false,
+	initialIsFollowing = false,
+	initialFollowCounts = { followers: 0, following: 0 },
+}: VibeGridProps) {
 	// Use context for optimistic updates, fall back to initialVibes for SSR
 	const vibesContext = useVibesSafe();
-	const dailyVibes = vibesContext?.vibes ?? initialVibes;
+	const allVibes = vibesContext?.vibes ?? initialVibes;
 	const isLoading = vibesContext?.isLoading ?? false;
 	const { resolvedTheme } = useTheme();
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+	// Filtered vibes state
+	const [filteredVibes, setFilteredVibes] = useState<DailyVibe[] | null>(null);
+
+	// Handle filter changes
+	const handleFilterChange = useCallback((filtered: DailyVibe[]) => {
+		// Only set filtered if different from all vibes
+		if (filtered.length === allVibes.length) {
+			setFilteredVibes(null);
+		} else {
+			setFilteredVibes(filtered);
+		}
+	}, [allVibes.length]);
+
+	// Use filtered vibes if available, otherwise all vibes
+	const displayVibes = filteredVibes ?? allVibes;
+	const isFiltered = filteredVibes !== null;
 
 	return (
 		<div className="relative">
@@ -45,9 +77,51 @@ export default function VibeGrid({ vibes, handle, profile, initialVibes = [] }: 
 				)}
 			</AnimatePresence>
 
-			<div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] grid-flow-row w-full">
+			{/* Floating Filter FAB & Panel */}
+			{showFilters && allVibes.length > 0 && (
+				<VibeFiltersComponent
+					vibes={allVibes}
+					vibeTypes={vibes}
+					onFilterChange={handleFilterChange}
+				/>
+			)}
+
+			{/* Filter status indicator */}
+			<AnimatePresence>
+				{isFiltered && (
+					<motion.div
+						initial={{ opacity: 0, y: -10 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: -10 }}
+						className="fixed top-4 left-1/2 -translate-x-1/2 z-40 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg"
+					>
+						<p className="text-sm font-medium">
+							{displayVibes.length === 0
+								? 'No vibes match your filters'
+								: `Showing ${displayVibes.length} of ${allVibes.length} vibes`}
+						</p>
+					</motion.div>
+				)}
+			</AnimatePresence>
+
+			{/* Grid */}
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row w-full">
+				{/* Profile Card - always first */}
+				<ProfileGridCard
+					profileId={profile.id}
+					handle={handle}
+					displayName={profile.display_name}
+					avatarUrl={profile.avatar_url}
+					bio={profile.bio}
+					dailyVibes={allVibes}
+					isOwner={isOwner}
+					currentUserId={currentUserId}
+					initialIsFollowing={initialIsFollowing}
+					initialFollowCounts={initialFollowCounts}
+				/>
+
 				<AnimatePresence>
-					{dailyVibes.map((entry) => {
+					{displayVibes.map((entry) => {
 						const vibeStyle = getVibeStyles(entry.vibe.vibe_type, currentTheme)
 						const isOptimistic = entry.id.startsWith('temp-')
 						return (
@@ -65,8 +139,8 @@ export default function VibeGrid({ vibes, handle, profile, initialVibes = [] }: 
 									animate={{ opacity: isOptimistic ? 0.7 : 1, scale: 1 }}
 									exit={{ opacity: 0, scale: 0.9 }}
 									transition={{
-										delay: isOptimistic ? 0 : Math.random() * 0.5,
-										duration: 0.6,
+										delay: isOptimistic ? 0 : Math.random() * 0.3,
+										duration: 0.4,
 										ease: 'easeOut',
 									}}
 									whileTap={{ scale: 0.98 }}

@@ -2,6 +2,7 @@ import { getVibeProfile } from "@/lib/getVibeProfile";
 import { notFound } from "next/navigation";
 import { getDailyVibes } from "@/lib/getDailyVibes";
 import { getVibes } from "@/lib/getVibes";
+import { getFollowCounts, isFollowing } from "@/lib/follows";
 import VibeGrid from "@/components/vibe/vibeGrid";
 import VibeProfileClient from "@/components/vibe/vibeProfileClient";
 import MotionLink from "@/components/ui/motionLink";
@@ -21,9 +22,18 @@ const VibeProfilePage = async ({ params }: PageProps) => {
 	const profile = await getVibeProfile(handle);
 	if (!profile) notFound();
 
-	const dailyVibes = await getDailyVibes(profile.id);
-	const vibes = await getVibes();
+	const [dailyVibes, vibes, followCounts] = await Promise.all([
+		getDailyVibes(profile.id),
+		getVibes(),
+		getFollowCounts(profile.id),
+	]);
+
 	const isOwner = user?.id === profile.id;
+
+	// Check if current user is following this profile (only if logged in and not owner)
+	const userIsFollowing = user && !isOwner
+		? await isFollowing(user.id, profile.id)
+		: false;
 
 	return (
 		<VibeProfileClient
@@ -46,6 +56,10 @@ const VibeProfilePage = async ({ params }: PageProps) => {
 				handle={handle}
 				profile={profile}
 				initialVibes={dailyVibes}
+				currentUserId={user?.id}
+				isOwner={isOwner}
+				initialIsFollowing={userIsFollowing}
+				initialFollowCounts={followCounts}
 			/>
 		</VibeProfileClient>
 	);

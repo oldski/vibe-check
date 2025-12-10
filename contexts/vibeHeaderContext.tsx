@@ -12,6 +12,8 @@ type VibeHeaderState = {
 		text?: string;
 	};
 	onDelete?: () => void;
+	onShare?: () => void;
+	onExport?: () => void;
 };
 
 type VibeHeaderContextType = {

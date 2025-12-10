@@ -1,9 +1,9 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState, useRef, ReactNode } from "react";
 import { useVibeHeader } from "@/contexts/vibeHeaderContext";
-import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, Pencil, Trash2, Share2, Download } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 
@@ -12,25 +12,42 @@ type HeaderClientProps = {
 };
 
 const HOTSPOT_HEIGHT = 60; // pixels from top to trigger header
+const TOUCH_HOTSPOT_HEIGHT = 80; // larger area for touch
 
 const HeaderClient = ({ children }: HeaderClientProps) => {
 	const { state } = useVibeHeader();
 	const [navVisible, setNavVisible] = useState(false);
+	const navVisibleRef = useRef(navVisible);
 
 	const isVibePage = state.isVibePage;
 
+	// Keep ref in sync with state
 	useEffect(() => {
-		// Start hidden
-		setNavVisible(false);
+		navVisibleRef.current = navVisible;
+	}, [navVisible]);
 
+	useEffect(() => {
 		const handleMouseMove = (e: MouseEvent) => {
 			const isInHotspot = e.clientY <= HOTSPOT_HEIGHT;
 			setNavVisible(isInHotspot);
 		};
 
-		const handleTouchStart = () => {
-			// Toggle on tap
-			setNavVisible(prev => !prev);
+		const handleTouchStart = (e: TouchEvent) => {
+			// Ignore touches on swipeable elements (like emotion selector)
+			const target = e.target as HTMLElement;
+			if (target.closest('[data-swipeable]')) return;
+
+			// Only toggle when touching near the top edge
+			const touch = e.touches[0];
+			if (!touch) return;
+
+			const isInHotspot = touch.clientY <= TOUCH_HOTSPOT_HEIGHT;
+			if (isInHotspot) {
+				setNavVisible(prev => !prev);
+			} else if (navVisibleRef.current) {
+				// Hide if tapping elsewhere while visible
+				setNavVisible(false);
+			}
 		};
 
 		const handleMouseLeave = () => {
@@ -38,7 +55,7 @@ const HeaderClient = ({ children }: HeaderClientProps) => {
 		};
 
 		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('touchstart', handleTouchStart);
+		window.addEventListener('touchstart', handleTouchStart, { passive: true });
 		document.addEventListener('mouseleave', handleMouseLeave);
 
 		return () => {
@@ -98,30 +115,63 @@ const HeaderClient = ({ children }: HeaderClientProps) => {
 						animate={{ opacity: navVisible ? 1 : 0 }}
 						transition={{ duration: 0.3 }}
 					>
-						{isVibePage && state.isOwner && state.vibeId && (
+						{isVibePage && state.vibeId && (
 							<>
-								<Link
-									href={`/v/${state.handle}/${state.vibeId}/edit`}
-									className={clsx(
-										"hover:opacity-70 transition-opacity",
-										state.vibeStyles?.text
-									)}
-									title="edit vibe"
-								>
-									<Pencil size={18} />
-								</Link>
-								{state.onDelete && (
+								{/* Share button - visible to everyone */}
+								{state.onShare && (
 									<button
 										type="button"
-										onClick={state.onDelete}
+										onClick={state.onShare}
 										className={clsx(
 											"hover:opacity-70 transition-opacity",
 											state.vibeStyles?.text
 										)}
-										title="delete vibe"
+										title="share vibe"
 									>
-										<Trash2 size={18} />
+										<Share2 size={18} />
 									</button>
+								)}
+								{/* Export/Download button - visible to everyone */}
+								{state.onExport && (
+									<button
+										type="button"
+										onClick={state.onExport}
+										className={clsx(
+											"hover:opacity-70 transition-opacity",
+											state.vibeStyles?.text
+										)}
+										title="download as image"
+									>
+										<Download size={18} />
+									</button>
+								)}
+								{/* Owner-only actions */}
+								{state.isOwner && (
+									<>
+										<Link
+											href={`/v/${state.handle}/${state.vibeId}/edit`}
+											className={clsx(
+												"hover:opacity-70 transition-opacity",
+												state.vibeStyles?.text
+											)}
+											title="edit vibe"
+										>
+											<Pencil size={18} />
+										</Link>
+										{state.onDelete && (
+											<button
+												type="button"
+												onClick={state.onDelete}
+												className={clsx(
+													"hover:opacity-70 transition-opacity",
+													state.vibeStyles?.text
+												)}
+												title="delete vibe"
+											>
+												<Trash2 size={18} />
+											</button>
+										)}
+									</>
 								)}
 							</>
 						)}

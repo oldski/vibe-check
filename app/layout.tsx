@@ -15,8 +15,19 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "VibeCheck",
-  description: "The fastest way to build apps with Next.js and Supabase",
+  title: "Vibe Check",
+  description: "Track your daily vibes and share your emotional journey",
+  openGraph: {
+    title: "Vibe Check",
+    description: "Track your daily vibes and share your emotional journey",
+    siteName: "Vibe Check",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Vibe Check",
+    description: "Track your daily vibes and share your emotional journey",
+  },
 };
 
 const clashDisplay = localFont({
