@@ -1,25 +1,24 @@
-import {clsx} from "clsx";
-import {cn} from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { VibeStyles } from "@/lib/types";
 
-type InputCalendarProps = {
+type InputTextAreaProps = {
 	vibeMessage: string;
-	vibeType?: string;
 	mode: 'view' | 'edit' | 'add';
+	vibeStyles?: VibeStyles | null;
 	onHandleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+	onBlur?: () => void;
+	error?: string;
 }
-const InputTextArea = ({vibeMessage, vibeType, mode, onHandleChange}: InputCalendarProps) => {
-	
+
+const InputTextArea = ({ vibeMessage, mode, vibeStyles, onHandleChange, onBlur, error }: InputTextAreaProps) => {
 	const maxLength = 140;
 	const warnThreshold = Math.floor(maxLength * 0.7);
 	const dangerThreshold = Math.floor(maxLength * 0.95);
-	
-	return(
+
+	return (
 		<>
 			{mode === 'view' ? (
-				<div className={cn(
-					'w-full resize-none text-3xl font-bold bg-transparent',
-					// vibeStyles?.text
-				)}>
+				<div className="w-full resize-none text-5xl md:text-6xl font-semibold bg-transparent">
 					{vibeMessage}
 				</div>
 			) : (
@@ -29,30 +28,35 @@ const InputTextArea = ({vibeMessage, vibeType, mode, onHandleChange}: InputCalen
 						placeholder="Today felt like..."
 						value={vibeMessage}
 						onChange={onHandleChange}
+						onBlur={onBlur}
 						maxLength={maxLength}
 						className={cn(
-							'w-full resize-none text-2xl font-bold bg-transparent border-b',
-							// vibeStyles?.text,
-							// vibeStyles?.ring,
-							'focus:outline-none',
-							// vibeStyles?.borderBottom,
-							// vibeStyles?.placeholder,
+							'w-full lg:w-3/4 resize-none text-3xl md:text-4xl font-semibold bg-transparent border-b-2 focus:outline-none transition-colors',
+							vibeStyles?.placeholder,
+							error ? 'border-red-500/50' : vibeStyles?.borderBottom,
 						)}
 						rows={3}
 					/>
+					<div className="flex items-center justify-between w-full lg:w-3/4 mt-2">
+						{error ? (
+							<span className="text-red-500 text-sm">{error}</span>
+						) : (
+							<span />
+						)}
 						<div
 							className={cn(
-								'inline-block p-1 rounded-full text-xs font-mono bg-white',
+								'inline-block p-1 rounded-full text-xs font-mono',
 								vibeMessage.length >= dangerThreshold
 									? 'text-red-500'
 									: vibeMessage.length >= warnThreshold
 										? 'text-yellow-500'
-										: 'text-green-500'
+										: 'opacity-50'
 							)}
 						>
 							{vibeMessage.length} / {maxLength}
 						</div>
-					</>
+					</div>
+				</>
 			)}
 		</>
 	)

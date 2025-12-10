@@ -10,6 +10,8 @@ import { ImagePlus, Trash2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { getVibeStyles } from '@/lib/getVibeStyles';
 import { useVibeHeader } from '@/contexts/vibeHeaderContext';
+import { useVibesSafe } from '@/contexts/vibesContext';
+import { useToast } from '@/contexts/toastContext';
 import InputCalendar from "@/components/ui/inputs/inputCalendar";
 import InputTextArea from "@/components/ui/inputs/inputTextArea";
 import SpotifyEmbed from "@/components/ui/spotifyEmbed";
@@ -29,11 +31,19 @@ type VibeFormProps = {
 	mode: 'view' | 'edit' | 'add';
 };
 
+type ValidationErrors = {
+	vibe?: string;
+	message?: string;
+	vibe_date?: string;
+};
+
 const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode }: VibeFormProps) => {
 	const router = useRouter();
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [success, setSuccess] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
+	const [errors, setErrors] = useState<ValidationErrors>({});
+	const [touched, setTouched] = useState<Record<string, boolean>>({});
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const { resolvedTheme } = useTheme();
@@ -43,6 +53,10 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 	const vibeStyles = getVibeStyles(vibeType, currentTheme);
 
 	const { setVibeHeader, clearVibeHeader } = useVibeHeader();
+	const { addToast } = useToast();
+
+	// Use context for optimistic updates when available
+	const vibesContext = useVibesSafe();
 
 	// Set header state for vibe pages (view, edit, add)
 	useEffect(() => {
@@ -61,33 +75,102 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [mode, handle, vibeId, isOwner, vibeStyles?.bg, vibeStyles?.text]);
 
+	// Validation function
+	const validateForm = (): ValidationErrors => {
+		const newErrors: ValidationErrors = {};
+
+		if (!form.vibe) {
+			newErrors.vibe = 'Please select a vibe';
+		}
+
+		if (!form.message || form.message.trim().length === 0) {
+			newErrors.message = 'Please add a message';
+		}
+
+		if (!form.vibe_date) {
+			newErrors.vibe_date = 'Please select a date';
+		}
+
+		return newErrors;
+	};
+
+	// Clear error when field is edited
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-		setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+		const { name, value } = e.target;
+		setForm((prev) => ({ ...prev, [name]: value }));
+
+		// Clear error for this field when user starts typing
+		if (errors[name as keyof ValidationErrors]) {
+			setErrors((prev) => ({ ...prev, [name]: undefined }));
+		}
+	};
+
+	// Mark field as touched on blur
+	const handleBlur = (field: string) => {
+		setTouched((prev) => ({ ...prev, [field]: true }));
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		// Validate form
+		const validationErrors = validateForm();
+		if (Object.keys(validationErrors).length > 0) {
+			setErrors(validationErrors);
+			// Mark all fields as touched to show errors
+			setTouched({ vibe: true, message: true, vibe_date: true });
+			addToast('Please fill in all required fields', 'warning');
+			return;
+		}
+
 		setIsProcessing(true);
 
-		const api = mode === 'edit' ? '/api/update-vibes' : '/api/send-vibes';
+		const successMessage = mode === 'add' ? 'Vibe added!' : 'Vibe updated!';
+		const errorMessage = mode === 'add' ? 'Failed to add vibe' : 'Failed to update vibe';
 
 		try {
-			const res = await fetch(api, {
-				method: 'POST',
-				body: JSON.stringify(form),
-			});
-			if (res.ok) {
-				setSuccess(true);
+			// Use context for optimistic updates when available
+			if (vibesContext) {
+				let success = false;
 				if (mode === 'add') {
-					router.push(`/v/${handle}`);
+					success = await vibesContext.addVibe(form, vibes, userId);
 				} else if (mode === 'edit') {
-					router.push(`/v/${handle}/${vibeId}`);
+					success = await vibesContext.updateVibe(form, vibes);
+				}
+
+				if (success) {
+					setSuccess(true);
+					addToast(successMessage, 'success');
+					if (mode === 'add') {
+						router.push(`/v/${handle}`);
+					} else if (mode === 'edit') {
+						router.push(`/v/${handle}/${vibeId}`);
+					}
+				} else {
+					addToast(errorMessage, 'error');
 				}
 			} else {
-				console.error('submission failed due to bad vibes');
+				// Fallback to direct API calls when context is not available
+				const api = mode === 'edit' ? '/api/update-vibes' : '/api/send-vibes';
+				const res = await fetch(api, {
+					method: 'POST',
+					body: JSON.stringify(form),
+				});
+				if (res.ok) {
+					setSuccess(true);
+					addToast(successMessage, 'success');
+					if (mode === 'add') {
+						router.push(`/v/${handle}`);
+					} else if (mode === 'edit') {
+						router.push(`/v/${handle}/${vibeId}`);
+					}
+				} else {
+					addToast(errorMessage, 'error');
+				}
 			}
 		} catch (err) {
 			console.error(err);
+			addToast('Something went wrong', 'error');
 		} finally {
 			setIsProcessing(false);
 		}
@@ -99,43 +182,68 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 
 		const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
 		if (!allowedTypes.includes(file.type)) {
-			alert('Only JPG, PNG, WebP, or MP4 files are allowed.');
+			addToast('Only JPG, PNG, WebP, or MP4 files are allowed', 'warning');
 			return;
 		}
 
 		const maxSize = 15 * 1024 * 1024;
 		if (file.size > maxSize) {
-			alert('File too large. Max is 15MB.');
+			addToast('File too large. Max is 15MB', 'warning');
 			return;
 		}
 
-		const compressedFile = file.type.startsWith('image/')
-			? await imageCompression(file, {
-				maxSizeMB: 1,
-				maxWidthOrHeight: 1024,
-				useWebWorker: true,
-			})
-			: file;
+		try {
+			const compressedFile = file.type.startsWith('image/')
+				? await imageCompression(file, {
+					maxSizeMB: 1,
+					maxWidthOrHeight: 1024,
+					useWebWorker: true,
+				})
+				: file;
 
-		const uploadUrl = await uploadVibeMedia(compressedFile, userId, form.vibe_date);
-		if (uploadUrl) {
-			setForm((prev) => ({ ...prev, media: uploadUrl }));
-		} else {
-			alert('Upload failed');
+			const uploadUrl = await uploadVibeMedia(compressedFile, userId, form.vibe_date);
+			if (uploadUrl) {
+				setForm((prev) => ({ ...prev, media: uploadUrl }));
+				addToast('Image uploaded', 'success');
+			} else {
+				addToast('Upload failed', 'error');
+			}
+		} catch (err) {
+			console.error(err);
+			addToast('Upload failed', 'error');
 		}
 	};
 
 	const handleDelete = async () => {
-		const res = await fetch('/api/delete-vibes', {
-			method: 'POST',
-			body: JSON.stringify({ id: form.id })
-		});
+		try {
+			// Use context for optimistic delete when available
+			if (vibesContext && form.id) {
+				const success = await vibesContext.deleteVibe(form.id);
+				if (success) {
+					setShowConfirm(false);
+					addToast('Vibe deleted', 'success');
+					router.push(`/v/${handle}`);
+				} else {
+					addToast('Failed to delete vibe', 'error');
+				}
+			} else {
+				// Fallback to direct API call
+				const res = await fetch('/api/delete-vibes', {
+					method: 'POST',
+					body: JSON.stringify({ id: form.id })
+				});
 
-		if (res.ok) {
-			setShowConfirm(false);
-			router.push(`/v/${handle}`);
-		} else {
-			console.error('Failed to delete vibe');
+				if (res.ok) {
+					setShowConfirm(false);
+					addToast('Vibe deleted', 'success');
+					router.push(`/v/${handle}`);
+				} else {
+					addToast('Failed to delete vibe', 'error');
+				}
+			}
+		} catch (err) {
+			console.error(err);
+			addToast('Failed to delete vibe', 'error');
 		}
 	};
 
@@ -156,8 +264,8 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 					</div>
 
 					{/* Message section - flex-1 to fill space, justify-end to push content to bottom */}
-					<div className="flex-1 flex flex-col justify-end">
-						<InputTextArea vibeMessage={form.message} mode={mode} onHandleChange={handleChange} />
+					<div className="flex-1 flex flex-col justify-end lg:w-3/4">
+						<InputTextArea vibeMessage={form.message} mode={mode} vibeStyles={vibeStyles} onHandleChange={handleChange} />
 					</div>
 
 					{/* Bottom section: Vibe type + Audio */}
@@ -172,7 +280,7 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 
 						{/* Audio/Spotify */}
 						{form.audio && (
-							<div className="w-64">
+							<div className="w-1/4">
 								<SpotifyEmbed vibeAudio={form.audio} />
 							</div>
 						)}
@@ -189,22 +297,29 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 					<EmotionSelector
 						vibes={vibes}
 						selectedVibeId={form.vibe}
-						onSelect={(vibeId) => setForm((prev) => ({ ...prev, vibe: vibeId }))}
+						onSelect={(vibeId) => {
+							setForm((prev) => ({ ...prev, vibe: vibeId }));
+							// Clear vibe error when a vibe is selected
+							if (errors.vibe) {
+								setErrors((prev) => ({ ...prev, vibe: undefined }));
+							}
+						}}
 					/>
 
 					{/* Message section */}
-					<div className="mt-6 flex-1 flex flex-col">
-						<label className={clsx(
-							"text-sm font-medium mb-2",
-							vibeStyles?.text
-						)}>
-							Today felt like...
-						</label>
-						<InputTextArea vibeMessage={form.message} mode={mode} onHandleChange={handleChange} />
+					<div className="mt-6 flex-1 flex flex-col justify-end">
+						<InputTextArea
+							vibeMessage={form.message}
+							mode={mode}
+							vibeStyles={vibeStyles}
+							onHandleChange={handleChange}
+							onBlur={() => handleBlur('message')}
+							error={touched.message ? errors.message : undefined}
+						/>
 					</div>
 
 					{/* Bottom section: Image + Spotify */}
-					<div className="flex items-center gap-8 mt-6">
+					<div className="flex items-start gap-8 mt-8 pt-4">
 						{/* Image Upload */}
 						<div className="flex items-center gap-2">
 							{form.media ? (
@@ -239,7 +354,7 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode 
 						</div>
 
 						{/* Audio/Spotify */}
-						<InputAudio vibeAudio={form.audio} vibeType={vibeType} mode={mode} onSetForm={setForm} onHandleChange={handleChange} />
+						<InputAudio vibeAudio={form.audio} mode={mode} vibeStyles={vibeStyles} onSetForm={setForm} onHandleChange={handleChange} />
 					</div>
 
 					{/* Submit Actions - pushed to bottom */}

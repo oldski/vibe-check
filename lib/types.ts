@@ -38,3 +38,19 @@ export type DailyVibeInput = {
 	media?: string;
 	profile_id?: string;
 }
+
+export type VibeStyles = {
+	bg: string;
+	text: string;
+	placeholder: string;
+	ring?: string;
+	hover?: string;
+	focus?: string;
+	active?: string;
+	border?: string;
+	borderBottom?: string;
+	disabled?: string;
+	outline?: string;
+	vibeButton?: string;
+	transition?: string;
+}

@@ -1,31 +1,28 @@
 import type { Dispatch, SetStateAction } from "react";
-import {AudioLines, CircleX} from "lucide-react";
-import {motion} from "framer-motion";
-import {getSpotifyTrackId} from "@/lib/getSpotifyTrackId";
-import {cn} from "@/lib/utils";
-import {VibeFormState} from "@/lib/types";
+import { AudioLines, CircleX } from "lucide-react";
+import { motion } from "framer-motion";
+import { getSpotifyTrackId } from "@/lib/getSpotifyTrackId";
+import { cn } from "@/lib/utils";
+import { VibeFormState, VibeStyles } from "@/lib/types";
 
 type InputAudioProps = {
 	vibeAudio: string;
-	vibeType?: string;
 	mode: 'view' | 'edit' | 'add';
+	vibeStyles?: VibeStyles | null;
 	onSetForm: Dispatch<SetStateAction<VibeFormState>>;
 	onHandleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }
 
-const InputAudio = ({vibeAudio, vibeType, mode, onSetForm, onHandleChange}: InputAudioProps) => {
-	return(
-		<div className="flex flex-col gap-4">
+const InputAudio = ({ vibeAudio, mode, vibeStyles, onSetForm, onHandleChange }: InputAudioProps) => {
+	return (
+		<div className="flex-1 flex flex-col gap-4">
 			<div className={cn(
-				"flex items-center gap-2 py-2 border-b", 
-				// vibeStyles?.borderBottom
+				"flex items-center gap-2 py-2 border-b-2 transition-colors",
+				vibeStyles?.borderBottom
 			)}>
-            <span className={cn(
-							'hover:opacity-70 p-1', 
-	            // vibeStyles?.text
-            )}>
-              <AudioLines />
-            </span>
+				<span className="hover:opacity-70 p-1">
+					<AudioLines />
+				</span>
 				<input
 					type="url"
 					name="audio"
@@ -33,9 +30,8 @@ const InputAudio = ({vibeAudio, vibeType, mode, onSetForm, onHandleChange}: Inpu
 					value={vibeAudio}
 					onChange={onHandleChange}
 					className={cn(
-						'w-full bg-transparent text-sm focus:outline-none',
-						// vibeStyles?.text,
-						// vibeStyles?.placeholder
+						'flex-1 bg-transparent text-sm focus:outline-none',
+						vibeStyles?.placeholder
 					)}
 					autoComplete="off"
 				/>
@@ -43,17 +39,14 @@ const InputAudio = ({vibeAudio, vibeType, mode, onSetForm, onHandleChange}: Inpu
 					<button
 						type="button"
 						onClick={() => onSetForm((prev) => ({ ...prev, audio: '' }))}
-						className={cn(
-							'hover:opacity-70 p-1 rounded-full',
-							// vibeStyles?.text
-						)}
+						className="hover:opacity-70 p-1 rounded-full"
 						title="Remove track"
 					>
 						<CircleX size={16} />
 					</button>
 				)}
 			</div>
-			
+
 			{/* Spotify Embed */}
 			{vibeAudio && getSpotifyTrackId(vibeAudio) && (
 				<motion.div

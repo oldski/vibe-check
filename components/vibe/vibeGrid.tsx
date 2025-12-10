@@ -1,36 +1,55 @@
 'use client'
 
-import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type {DailyVibe, Vibe} from '@/lib/types'
-import {useTheme} from "next-themes";
-import Image from "next/image";
+import type { DailyVibe, Vibe } from '@/lib/types'
+import { useTheme } from "next-themes";
 import { format, parseISO } from "date-fns";
-import {Calendar, Music} from "lucide-react";
+import { Calendar, Music, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { getVibeStyles } from '@/lib/getVibeStyles';
-import {cn} from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useVibesSafe } from '@/contexts/vibesContext';
 
 type VibeGridProps = {
-	dailyVibes: DailyVibe[];
 	vibes: Vibe[];
 	handle: string;
 	profile: {
 		id: string;
 		display_name: string | null;
 		created_at: string;
-	}
+	};
+	initialVibes?: DailyVibe[];
 }
-export default function VibeGrid({ dailyVibes, vibes, handle, profile }: VibeGridProps) {
+export default function VibeGrid({ vibes, handle, profile, initialVibes = [] }: VibeGridProps) {
+	// Use context for optimistic updates, fall back to initialVibes for SSR
+	const vibesContext = useVibesSafe();
+	const dailyVibes = vibesContext?.vibes ?? initialVibes;
+	const isLoading = vibesContext?.isLoading ?? false;
 	const { resolvedTheme } = useTheme();
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
 	return (
-		<>
+		<div className="relative">
+			{/* Loading overlay for optimistic updates */}
+			<AnimatePresence>
+				{isLoading && (
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-background/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
+					>
+						<Loader2 className="size-4 animate-spin" />
+						<span className="text-sm font-medium">Saving...</span>
+					</motion.div>
+				)}
+			</AnimatePresence>
+
 			<div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] grid-flow-row w-full">
 				<AnimatePresence>
 					{dailyVibes.map((entry) => {
 						const vibeStyle = getVibeStyles(entry.vibe.vibe_type, currentTheme)
+						const isOptimistic = entry.id.startsWith('temp-')
 						return (
 							<Link
 								key={entry.id}
@@ -43,15 +62,18 @@ export default function VibeGrid({ dailyVibes, vibes, handle, profile }: VibeGri
 									key={entry.id}
 									layout
 									initial={{ opacity: 0, scale: 0.9 }}
-									animate={{ opacity: 1, scale: 1 }}
+									animate={{ opacity: isOptimistic ? 0.7 : 1, scale: 1 }}
 									exit={{ opacity: 0, scale: 0.9 }}
 									transition={{
-										delay: Math.random() * 0.5,
+										delay: isOptimistic ? 0 : Math.random() * 0.5,
 										duration: 0.6,
 										ease: 'easeOut',
 									}}
 									whileTap={{ scale: 0.98 }}
-									className="relative group aspect-square w-full overflow-hidden shadow-md hover:shadow-xl transition-shadow will-change-transform isolate"
+									className={cn(
+										"relative group aspect-square w-full overflow-hidden shadow-md hover:shadow-xl transition-shadow will-change-transform isolate",
+										isOptimistic && "animate-pulse"
+									)}
 								>
 									{/* Image background (blurred) */}
 									{entry.media ? (
@@ -79,29 +101,23 @@ export default function VibeGrid({ dailyVibes, vibes, handle, profile }: VibeGri
 									{/* Foreground content */}
 									<div className={cn(
 										"relative z-20 p-4 h-full flex flex-col justify-end",
-										currentTheme === 'light' ? `text-${entry.vibe.vibe_type.toLowerCase()}-800` : entry.vibe.vibe_type === 'Brat' ? `text-${entry.vibe.vibe_type.toLowerCase()}-400` : `text-${entry.vibe.vibe_type.toLowerCase()}-500`,
+										vibeStyle?.text,
 									)}>
 										{/* Date - above message */}
 										<div className="flex flex-row items-center gap-2 mb-2">
-											<Calendar size={14} className={cn("opacity-60", vibeStyle?.text)} />
-											<div className={cn("text-xs opacity-60 font-medium", vibeStyle?.text)}>
+											<Calendar size={14} className="opacity-60" />
+											<div className="text-xs opacity-60 font-medium">
 												{format(parseISO(entry.vibe_date), 'MMMM d, yyyy')}
 											</div>
 										</div>
 
 										{/* Message */}
-										<div className={cn(
-											"font-bold tracking-tight text-xl sm:text-2xl md:text-3xl mb-2",
-											currentTheme === 'light' ? `text-${entry.vibe.vibe_type.toLowerCase()}-800` : entry.vibe.vibe_type === 'Brat' ? `text-${entry.vibe.vibe_type.toLowerCase()}-400` : `text-${entry.vibe.vibe_type.toLowerCase()}-500`,
-										)}>
+										<div className="font-semibold tracking-tight text-xl sm:text-2xl md:text-3xl mb-2 line-clamp-3">
 											{entry.message}
 										</div>
 
 										{/* Bottom row: vibe type + audio indicator */}
-										<div className={cn(
-											"flex items-center justify-between",
-											currentTheme === 'light' ? `text-${entry.vibe.vibe_type.toLowerCase()}-800` : entry.vibe.vibe_type === 'Brat' ? `text-${entry.vibe.vibe_type.toLowerCase()}-400` : `text-${entry.vibe.vibe_type.toLowerCase()}-500`,
-										)}>
+										<div className="flex items-center justify-between">
 											<div className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-90 transition duration-300 ease-out">
 												<div className="text-xs tracking-widest uppercase font-bold opacity-30 line-clamp-3">
 													{entry.vibe.vibe_type}
@@ -129,6 +145,6 @@ export default function VibeGrid({ dailyVibes, vibes, handle, profile }: VibeGri
 					})}
 				</AnimatePresence>
 			</div>
-		</>
+		</div>
 	)
 }

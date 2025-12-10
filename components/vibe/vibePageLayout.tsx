@@ -25,9 +25,16 @@ export default function VibePageLayout({
 	mode
 }: VibePageLayoutProps) {
 	const [form, setForm] = useState<VibeFormState | null>(null);
+	const [mounted, setMounted] = useState(false);
 
 	const { resolvedTheme } = useTheme();
-	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	// Wait for mount to get accurate theme - resolvedTheme is undefined during SSR
+	const currentTheme = (mounted ? resolvedTheme : 'light') === 'dark' ? 'dark' : 'light';
 
 	// Initialize form state based on mode
 	useEffect(() => {
@@ -57,41 +64,50 @@ export default function VibePageLayout({
 	const selectedVibeType = form ? vibes.find((v) => v.id === form.vibe) : null;
 	const defaultVibe = vibes[0]; // fallback for when no vibe selected
 	const activeVibe = selectedVibeType ?? defaultVibe;
-	const vibeStyles = getVibeStyles(activeVibe?.vibe_type, currentTheme);
-	const vibeColor = currentTheme === 'dark'
-		? (activeVibe?.color_dark ?? '#1a1a1a')
-		: (activeVibe?.color_light ?? '#ffffff');
+	const vibeType = activeVibe?.vibe_type?.toLowerCase() ?? 'happy';
+	// Use Tailwind classes like vibeGrid for consistent theme handling
+	const vibeBgClass = currentTheme === 'dark'
+		? `bg-${vibeType}-900`
+		: `bg-${vibeType}-400`;
 	const hasImage = form?.media && form.media.match(/\.(jpg|jpeg|png|webp)$/i);
 
-	if (!form) return null;
+	if (!form || !mounted) return null;
 
 	const isEditMode = mode === 'add' || mode === 'edit';
 
 	return (
 		<div className="fixed inset-0 z-30 overflow-hidden">
 			{/* Animated Background */}
-			<motion.div
-				className="absolute inset-0 z-0"
-				initial={{ opacity: 0 }}
-				animate={{
-					opacity: 1,
-					backgroundColor: vibeColor
-				}}
-				transition={{ duration: 0.4 }}
-			>
+			<div className="absolute inset-0 z-0">
+				{/* Base color layer */}
+				<div className={clsx("absolute inset-0", vibeBgClass)} />
+
+				{/* Image layer */}
 				{hasImage && (
 					<motion.div
 						className="absolute inset-0"
 						style={{
 							backgroundImage: `url(${form.media})`,
 							backgroundSize: "cover",
-							backgroundPosition: "center top", // Favor top of image for portraits
+							backgroundPosition: "center top",
 						}}
 						initial={{ opacity: 0 }}
-						animate={{ opacity: 0.7 }}
+						animate={{ opacity: 1 }}
 					/>
 				)}
-			</motion.div>
+
+				{/* Color overlay with blend mode - only applied when there's an image */}
+				{/* Without this condition, mix-blend-multiply darkens the -900 color even further */}
+				{hasImage && (
+					<div
+						className={clsx(
+							"absolute inset-0 mix-blend-multiply pointer-events-none",
+							vibeBgClass
+						)}
+						style={{ opacity: 0.85 }}
+					/>
+				)}
+			</div>
 
 			{/* Form Content */}
 			<motion.div

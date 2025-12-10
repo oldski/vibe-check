@@ -5,6 +5,8 @@ import Footer from "@/components/layout/footer";
 import { clsx } from "clsx";
 import { cn } from "@/lib/utils";
 import { VibeHeaderProvider } from "@/contexts/vibeHeaderContext";
+import { ToastProvider } from "@/contexts/toastContext";
+import ToastContainer from "@/components/ui/toastContainer";
 import localFont from "next/font/local";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -59,13 +61,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <VibeHeaderProvider>
-            <Header />
-            <main className="min-h-screen flex flex-col items-center relative">
-              {children}
-            </main>
-            <Footer />
-          </VibeHeaderProvider>
+          <ToastProvider>
+            <VibeHeaderProvider>
+              <Header />
+              <main className="min-h-screen flex flex-col items-center relative">
+                {children}
+              </main>
+              <Footer />
+            </VibeHeaderProvider>
+            <ToastContainer />
+          </ToastProvider>
         </ThemeProvider>
         <div className={cn(
           "bg-neutral-50",
