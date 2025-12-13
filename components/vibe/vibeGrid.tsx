@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'
 import type { DailyVibe, Vibe, Profile, FollowCounts } from '@/lib/types'
 import { useTheme } from "next-themes";
@@ -12,6 +12,15 @@ import { cn } from "@/lib/utils";
 import { useVibesSafe } from '@/contexts/vibesContext';
 import VibeFiltersComponent from './vibeFilters';
 import ProfileGridCard from './profileGridCard';
+
+type GridSize = 'sm' | 'md';
+
+const GRID_SIZE_KEY = 'vibe-grid-size';
+
+const gridClasses: Record<GridSize, string> = {
+	sm: 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8',
+	md: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+};
 
 type VibeGridProps = {
 	vibes: Vibe[];
@@ -42,6 +51,23 @@ export default function VibeGrid({
 	const isLoading = vibesContext?.isLoading ?? false;
 	const { resolvedTheme } = useTheme();
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+	// Grid size state with localStorage persistence
+	const [gridSize, setGridSize] = useState<GridSize>('md');
+
+	// Load grid size from localStorage on mount
+	useEffect(() => {
+		const saved = localStorage.getItem(GRID_SIZE_KEY) as GridSize | null;
+		if (saved && (saved === 'sm' || saved === 'md')) {
+			setGridSize(saved);
+		}
+	}, []);
+
+	// Handle grid size change with localStorage persistence
+	const handleGridSizeChange = useCallback((newSize: GridSize) => {
+		setGridSize(newSize);
+		localStorage.setItem(GRID_SIZE_KEY, newSize);
+	}, []);
 
 	// Filtered vibes state
 	const [filteredVibes, setFilteredVibes] = useState<DailyVibe[] | null>(null);
@@ -83,6 +109,8 @@ export default function VibeGrid({
 					vibes={allVibes}
 					vibeTypes={vibes}
 					onFilterChange={handleFilterChange}
+					gridSize={gridSize}
+					onGridSizeChange={handleGridSizeChange}
 				/>
 			)}
 
@@ -105,8 +133,8 @@ export default function VibeGrid({
 			</AnimatePresence>
 
 			{/* Grid */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row w-full">
-				{/* Profile Card - always first */}
+			<div className={cn("grid grid-flow-row w-full", gridClasses[gridSize])}>
+				{/* Profile Card - always first, 2x2 */}
 				<ProfileGridCard
 					profileId={profile.id}
 					handle={handle}
@@ -118,6 +146,7 @@ export default function VibeGrid({
 					currentUserId={currentUserId}
 					initialIsFollowing={initialIsFollowing}
 					initialFollowCounts={initialFollowCounts}
+					gridSize={gridSize}
 				/>
 
 				<AnimatePresence>
@@ -174,26 +203,38 @@ export default function VibeGrid({
 
 									{/* Foreground content */}
 									<div className={cn(
-										"relative z-20 p-4 h-full flex flex-col justify-end",
+										"relative z-20 h-full flex flex-col justify-end",
+										gridSize === 'sm' ? "p-2 sm:p-3" : "p-4",
 										vibeStyle?.text,
 									)}>
 										{/* Date - above message */}
 										<div className="flex flex-row items-center gap-2 mb-2">
-											<Calendar size={14} className="opacity-60" />
-											<div className="text-xs opacity-60 font-medium">
-												{format(parseISO(entry.vibe_date), 'MMMM d, yyyy')}
+											<Calendar size={gridSize === 'sm' ? 12 : 14} className="opacity-60" />
+											<div className={cn(
+												"opacity-60 font-medium",
+												gridSize === 'sm' ? "text-[10px]" : "text-xs"
+											)}>
+												{format(parseISO(entry.vibe_date), gridSize === 'sm' ? 'MMM d' : 'MMMM d, yyyy')}
 											</div>
 										</div>
 
 										{/* Message */}
-										<div className="font-semibold tracking-tight text-xl sm:text-2xl md:text-3xl mb-2 line-clamp-3">
+										<div className={cn(
+											"font-semibold tracking-tight mb-2",
+											gridSize === 'sm'
+												? "text-sm sm:text-base line-clamp-2"
+												: "text-xl sm:text-2xl md:text-3xl line-clamp-3"
+										)}>
 											{entry.message}
 										</div>
 
 										{/* Bottom row: vibe type + audio indicator */}
 										<div className="flex items-center justify-between">
 											<div className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-90 transition duration-300 ease-out">
-												<div className="text-xs tracking-widest uppercase font-bold opacity-30 line-clamp-3">
+												<div className={cn(
+													"tracking-widest uppercase font-bold opacity-30",
+													gridSize === 'sm' ? "text-[10px] line-clamp-1" : "text-xs line-clamp-3"
+												)}>
 													{entry.vibe.vibe_type}
 												</div>
 											</div>

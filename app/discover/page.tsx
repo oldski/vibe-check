@@ -1,6 +1,9 @@
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { getPublicProfiles, getFollowingProfiles } from '@/lib/getPublicProfiles';
 import DiscoveryCard from '@/components/discovery/discoveryCard';
+import DiscoverySearch from '@/components/discovery/discoverySearch';
+import TrendingVibes from '@/components/discovery/trendingVibes';
+import VibeOfDay from '@/components/discovery/vibeOfDay';
 import { Compass, Users } from 'lucide-react';
 
 export const metadata = {
@@ -35,6 +38,15 @@ export default async function DiscoverPage() {
 				<p className="text-muted-foreground mt-2">
 					Find new people to follow and explore their vibes
 				</p>
+			</div>
+
+			{/* Search */}
+			<DiscoverySearch />
+
+			{/* Trending & Vibe of Day */}
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+				<TrendingVibes />
+				<VibeOfDay />
 			</div>
 
 			{/* Following Section (if user is logged in and following people) */}

@@ -23,7 +23,14 @@ const MIN_SWIPE_DESKTOP = 80;
 const MIN_SWIPE_MOBILE = 30;
 
 const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorProps) => {
-	const [currentIndex, setCurrentIndex] = useState(0);
+	// Start with null index when no vibe is selected
+	const [currentIndex, setCurrentIndex] = useState<number | null>(() => {
+		if (selectedVibeId) {
+			const index = vibes.findIndex(v => v.id === selectedVibeId);
+			return index >= 0 ? index : null;
+		}
+		return null;
+	});
 	const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
 	const [isTouchDevice, setIsTouchDevice] = useState(false);
 	const lastChangeRef = useRef<number>(0);
@@ -36,8 +43,8 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 		setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
 	}, []);
 
-	// Get vibe styles for the current emotion
-	const currentVibe = vibes[currentIndex];
+	// Get vibe styles for the current emotion (or neutral when none selected)
+	const currentVibe = currentIndex !== null ? vibes[currentIndex] : null;
 	const vibeStyles = getVibeStyles(currentVibe?.vibe_type, currentTheme);
 
 	// Sync currentIndex with selectedVibeId
@@ -45,6 +52,8 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 		if (selectedVibeId) {
 			const index = vibes.findIndex(v => v.id === selectedVibeId);
 			if (index >= 0) setCurrentIndex(index);
+		} else {
+			setCurrentIndex(null);
 		}
 	}, [selectedVibeId, vibes]);
 
@@ -61,6 +70,12 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 
 	const goToNext = useCallback(() => {
 		if (!canChange()) return;
+		// If no vibe selected yet, start at beginning
+		if (currentIndex === null) {
+			setCurrentIndex(0);
+			onSelect(vibes[0].id);
+			return;
+		}
 		const nextIndex = (currentIndex + 1) % vibes.length;
 		setCurrentIndex(nextIndex);
 		onSelect(vibes[nextIndex].id);
@@ -68,6 +83,13 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 
 	const goToPrev = useCallback(() => {
 		if (!canChange()) return;
+		// If no vibe selected yet, start at end
+		if (currentIndex === null) {
+			const lastIndex = vibes.length - 1;
+			setCurrentIndex(lastIndex);
+			onSelect(vibes[lastIndex].id);
+			return;
+		}
 		const prevIndex = (currentIndex - 1 + vibes.length) % vibes.length;
 		setCurrentIndex(prevIndex);
 		onSelect(vibes[prevIndex].id);
@@ -182,8 +204,6 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 		return () => window.removeEventListener('wheel', handleWheel);
 	}, [handleWheel, isTouchDevice]);
 
-	if (!currentVibe) return null;
-
 	return (
 		<div
 			ref={containerRef}
@@ -220,19 +240,36 @@ const EmotionSelector = ({ vibes, selectedVibeId, onSelect }: EmotionSelectorPro
 
 			{/* Emotion name with animation */}
 			<AnimatePresence mode="wait">
-				<motion.span
-					key={currentVibe.id}
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					exit={{ opacity: 0, y: -20 }}
-					transition={{ duration: 0.3, ease: "easeOut" }}
-					className={clsx(
-						"text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-widest",
-						vibeStyles?.text
-					)}
-				>
-					{currentVibe.vibe_type}
-				</motion.span>
+				{currentVibe ? (
+					<motion.span
+						key={currentVibe.id}
+						initial={{ opacity: 0, y: 20 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: -20 }}
+						transition={{ duration: 0.3, ease: "easeOut" }}
+						className={clsx(
+							"text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-widest",
+							vibeStyles?.text
+						)}
+					>
+						{currentVibe.vibe_type}
+					</motion.span>
+				) : (
+					<motion.span
+						key="prompt"
+						initial={{ opacity: 0, y: 20 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: -20 }}
+						transition={{ duration: 0.3, ease: "easeOut" }}
+						className={clsx(
+							"text-2xl md:text-3xl lg:text-4xl font-medium tracking-wide",
+							vibeStyles?.text,
+							"opacity-60"
+						)}
+					>
+						scroll to vibe
+					</motion.span>
+				)}
 			</AnimatePresence>
 		</div>
 	);

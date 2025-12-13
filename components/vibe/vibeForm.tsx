@@ -12,14 +12,17 @@ import { getVibeStyles } from '@/lib/getVibeStyles';
 import { useVibeHeader } from '@/contexts/vibeHeaderContext';
 import { useVibesSafe } from '@/contexts/vibesContext';
 import { useToast } from '@/contexts/toastContext';
+import { useEmotionDetection } from '@/hooks/useEmotionDetection';
 import InputCalendar from "@/components/ui/inputs/inputCalendar";
 import InputTextArea from "@/components/ui/inputs/inputTextArea";
 import SpotifyEmbed from "@/components/ui/spotifyEmbed";
 import InputAudio from "@/components/ui/inputs/inputAudio";
 import EmotionSelector from "@/components/ui/inputs/emotionSelector";
+import VibeSuggestion from "@/components/ui/vibeSuggestion";
 import VibeFormActions from "./vibeFormActions";
 import DeleteConfirmDialog from "./deleteConfirmDialog";
 import ShareMenu from "@/components/ui/shareMenu";
+import AssistantPanel from "@/components/assistant/assistantPanel";
 
 type VibeFormProps = {
 	form: VibeFormState;
@@ -60,6 +63,41 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode,
 
 	// Use context for optimistic updates when available
 	const vibesContext = useVibesSafe();
+
+	// AI emotion detection (only in add/edit mode)
+	const shouldDetectEmotion = mode === 'add' || mode === 'edit';
+	const {
+		result: emotionResult,
+		isLoading: isDetectingEmotion,
+		clear: clearEmotionSuggestion
+	} = useEmotionDetection(shouldDetectEmotion ? form.message : '', 1500);
+
+	// Track if user dismissed the suggestion
+	const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+
+	// Reset dismissed state when message changes significantly
+	useEffect(() => {
+		if (form.message.length < 15) {
+			setSuggestionDismissed(false);
+		}
+	}, [form.message]);
+
+	// Handle accepting the AI suggestion
+	const handleAcceptSuggestion = (vibeId: number) => {
+		setForm(prev => ({ ...prev, vibe: vibeId }));
+		clearEmotionSuggestion();
+		setSuggestionDismissed(true);
+		// Clear vibe error since a vibe is now selected
+		if (errors.vibe) {
+			setErrors(prev => ({ ...prev, vibe: undefined }));
+		}
+	};
+
+	// Handle dismissing the suggestion
+	const handleDismissSuggestion = () => {
+		clearEmotionSuggestion();
+		setSuggestionDismissed(true);
+	};
 
 	// Share handler - shows native share on mobile, share menu on desktop
 	const handleShare = async () => {
@@ -315,8 +353,20 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode,
 				<div className="flex flex-col h-full overflow-hidden">
 					{/* Swipeable top section - date + emotion selector */}
 					<div data-swipeable="true" className="flex-shrink-0">
-						{/* Top row: Date on right */}
-						<div className="flex justify-end mb-4">
+						{/* Top row: Vibe Assistant on left, Date on right */}
+						<div className="flex items-start justify-between mb-4">
+							<AssistantPanel
+								vibes={vibes}
+								onSelectVibe={(vibeId) => {
+									setForm(prev => ({ ...prev, vibe: vibeId }));
+									if (errors.vibe) {
+										setErrors(prev => ({ ...prev, vibe: undefined }));
+									}
+								}}
+								onAddSong={(spotifyUrl) => {
+									setForm(prev => ({ ...prev, audio: spotifyUrl }));
+								}}
+							/>
 							<InputCalendar vibeDate={form.vibe_date} vibeType={vibeType} mode={mode} onHandleChange={handleChange} />
 						</div>
 
@@ -332,6 +382,18 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode,
 								}
 							}}
 						/>
+
+						{/* AI Vibe Suggestion */}
+						{!suggestionDismissed && (
+							<VibeSuggestion
+								suggestedVibe={emotionResult?.suggestedVibe || null}
+								confidence={emotionResult?.confidence || 0}
+								isLoading={isDetectingEmotion}
+								vibes={vibes}
+								onAccept={handleAcceptSuggestion}
+								onDismiss={handleDismissSuggestion}
+							/>
+						)}
 					</div>
 
 					{/* Message section */}
@@ -393,6 +455,7 @@ const VibeForm = ({ form, setForm, userId, vibes, isOwner, vibeId, handle, mode,
 							success={success}
 							vibeStyles={vibeStyles ?? undefined}
 							onCancel={mode === 'edit' && vibeId ? () => router.push(`/v/${handle}/${vibeId}`) : undefined}
+							isValid={Boolean(form.vibe && form.message?.trim() && form.vibe_date)}
 						/>
 					</div>
 				</div>

@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { DailyVibe, Vibe } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, X, Filter, Calendar } from 'lucide-react';
+import { Search, X, Filter, Calendar, Grid2X2, Grid3X3, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+
+type GridSize = 'sm' | 'md';
 
 export type VibeFilters = {
 	search: string;
@@ -20,9 +22,11 @@ type VibeFiltersProps = {
 	vibes: DailyVibe[];
 	vibeTypes: Vibe[];
 	onFilterChange: (filteredVibes: DailyVibe[]) => void;
+	gridSize: GridSize;
+	onGridSizeChange: (size: GridSize) => void;
 };
 
-export default function VibeFiltersComponent({ vibes, vibeTypes, onFilterChange }: VibeFiltersProps) {
+export default function VibeFiltersComponent({ vibes, vibeTypes, onFilterChange, gridSize, onGridSizeChange }: VibeFiltersProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [filters, setFilters] = useState<VibeFilters>({
 		search: '',
@@ -184,6 +188,40 @@ export default function VibeFiltersComponent({ vibes, vibeTypes, onFilterChange 
 
 							{/* Content */}
 							<div className="px-6 pb-8 space-y-6 overflow-y-auto max-h-[calc(80vh-100px)]">
+								{/* Grid Size */}
+								<div className="space-y-2">
+									<label className="text-sm text-muted-foreground flex items-center gap-2">
+										<LayoutGrid className="size-4" />
+										Grid Size
+									</label>
+									<div className="flex gap-2">
+										<button
+											onClick={() => onGridSizeChange('md')}
+											className={cn(
+												"flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+												gridSize === 'md'
+													? "bg-foreground text-background"
+													: "bg-muted hover:bg-muted/80 text-foreground"
+											)}
+										>
+											<Grid2X2 className="size-4" />
+											Large
+										</button>
+										<button
+											onClick={() => onGridSizeChange('sm')}
+											className={cn(
+												"flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+												gridSize === 'sm'
+													? "bg-foreground text-background"
+													: "bg-muted hover:bg-muted/80 text-foreground"
+											)}
+										>
+											<Grid3X3 className="size-4" />
+											Compact
+										</button>
+									</div>
+								</div>
+
 								{/* Search */}
 								<div className="space-y-2">
 									<label className="text-sm text-muted-foreground flex items-center gap-2">

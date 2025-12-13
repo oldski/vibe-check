@@ -6,6 +6,7 @@ import BackstageProfile from '@/components/backstage/backstageProfile';
 import BackstageStats from '@/components/backstage/backstageStats';
 import BackstageConnections from '@/components/backstage/backstageConnections';
 import BackstageAccount from '@/components/backstage/backstageAccount';
+import VibeAssistant from '@/components/assistant/vibeAssistant';
 import { useRouter } from 'next/navigation';
 
 type BackstageClientProps = {
@@ -33,6 +34,9 @@ export default function BackstageClient({ profile: initialProfile, stats, email 
 				profile={profile}
 				onProfileUpdate={handleProfileUpdate}
 			/>
+
+			{/* Vibe Assistant */}
+			<VibeAssistant />
 
 			{/* Stats Section */}
 			<BackstageStats stats={stats} />

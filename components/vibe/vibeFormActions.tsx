@@ -21,13 +21,14 @@ type VibeFormActionsProps = {
 	success: boolean;
 	vibeStyles?: VibeStyles;
 	onCancel?: () => void;
+	isValid?: boolean;
 };
 
-const VibeFormActions = ({ mode, isProcessing, success, vibeStyles, onCancel }: VibeFormActionsProps) => {
+const VibeFormActions = ({ mode, isProcessing, success, vibeStyles, onCancel, isValid = true }: VibeFormActionsProps) => {
 	const buttonLabel = mode === 'edit' ? 'Save Vibe' : 'Submit Vibe';
 
 	return (
-		<div className="flex flex-row justify-end items-center gap-4">
+		<div className="flex flex-row justify-end items-center gap-4 pb-1 pr-1">
 			{mode === 'edit' && onCancel && (
 				<motion.button
 					type="button"
@@ -47,9 +48,9 @@ const VibeFormActions = ({ mode, isProcessing, success, vibeStyles, onCancel }: 
 			)}
 			<motion.button
 				type="submit"
-				disabled={isProcessing || success}
-				whileHover={!isProcessing && !success ? { scale: 1.05 } : undefined}
-				whileTap={!isProcessing && !success ? { scale: 0.95 } : undefined}
+				disabled={isProcessing || success || !isValid}
+				whileHover={!isProcessing && !success && isValid ? { scale: 1.05 } : undefined}
+				whileTap={!isProcessing && !success && isValid ? { scale: 0.95 } : undefined}
 				transition={{ type: 'spring', stiffness: 300 }}
 				className={clsx(
 					'px-6 py-2 rounded-full font-semibold shadow-md flex items-center gap-2 min-w-[140px] justify-center',

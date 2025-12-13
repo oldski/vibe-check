@@ -52,7 +52,7 @@ export default function VibePageLayout({
 				id: undefined,
 				vibe_date: format(new Date(), 'yyyy-MM-dd'),
 				message: '',
-				vibe: vibes[0]?.id ?? null, // Start with first vibe selected
+				vibe: null, // Start with no vibe selected (neutral gray state)
 				audio: '',
 				media: '',
 			});
@@ -69,15 +69,13 @@ export default function VibePageLayout({
 		}
 	}, [mode, selectedVibe, vibes]);
 
-	// Get vibe styling - use first vibe as default for add mode
+	// Get vibe styling - use neutral gray when no vibe is selected
 	const selectedVibeType = form ? vibes.find((v) => v.id === form.vibe) : null;
-	const defaultVibe = vibes[0]; // fallback for when no vibe selected
-	const activeVibe = selectedVibeType ?? defaultVibe;
-	const vibeType = activeVibe?.vibe_type?.toLowerCase() ?? 'happy';
-	// Use Tailwind classes like vibeGrid for consistent theme handling
-	const vibeBgClass = currentTheme === 'dark'
-		? `bg-${vibeType}-900`
-		: `bg-${vibeType}-400`;
+	const vibeType = selectedVibeType?.vibe_type?.toLowerCase();
+	// Use neutral gray when no vibe selected, otherwise use vibe colors
+	const vibeBgClass = vibeType
+		? (currentTheme === 'dark' ? `bg-${vibeType}-900` : `bg-${vibeType}-400`)
+		: (currentTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-200');
 	const hasImage = form?.media && form.media.match(/\.(jpg|jpeg|png|webp)$/i);
 
 	// Export handler for capturing vibe as image

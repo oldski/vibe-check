@@ -10,6 +10,8 @@ import { getVibeStyles } from '@/lib/getVibeStyles';
 import FollowButton from '@/components/ui/followButton';
 import type { DailyVibe, FollowCounts } from '@/lib/types';
 
+type GridSize = 'sm' | 'md';
+
 type ProfileGridCardProps = {
 	profileId: string;
 	handle: string;
@@ -21,6 +23,7 @@ type ProfileGridCardProps = {
 	currentUserId?: string | null;
 	initialIsFollowing?: boolean;
 	initialFollowCounts?: FollowCounts;
+	gridSize?: GridSize;
 };
 
 // Calculate most-used vibe from daily vibes
@@ -56,6 +59,7 @@ export default function ProfileGridCard({
 	currentUserId,
 	initialIsFollowing = false,
 	initialFollowCounts = { followers: 0, following: 0 },
+	gridSize = 'md',
 }: ProfileGridCardProps) {
 	const { resolvedTheme } = useTheme();
 	const currentTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
@@ -71,14 +75,18 @@ export default function ProfileGridCard({
 	const showFollowButton = !isOwner && !!currentUserId;
 
 	return (
-		<div className="md:col-span-2 relative">
+		<div className={cn(
+			"col-span-2 relative",
+			gridSize === 'md' ? "row-span-2 lg:row-span-1 max-h-[400px] lg:max-h-none" : "row-span-2"
+		)}>
 			<motion.div
 				layout
 				initial={{ opacity: 0, scale: 0.9 }}
 				animate={{ opacity: 1, scale: 1 }}
 				transition={{ duration: 0.4, ease: 'easeOut' }}
 				className={cn(
-					"relative aspect-square md:aspect-[2/1] w-full overflow-hidden shadow-md will-change-transform isolate",
+					"relative w-full h-full overflow-hidden shadow-md will-change-transform isolate",
+					gridSize === 'md' ? "aspect-square lg:aspect-auto" : "aspect-square",
 					currentTheme === 'light'
 						? `bg-${mostUsedVibe || 'happy'}-400`
 						: `bg-${mostUsedVibe || 'happy'}-900`

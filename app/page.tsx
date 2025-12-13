@@ -34,7 +34,7 @@ export default async function Home() {
           "dark:from-transparent dark:via-transparent dark:to-neutral-800",
         )}>
           <h1 className="text-6xl sm:text-7xl font-extrabold tracking-tight">Vibe Check</h1>
-          <p className="text-xl sm:text-2xl mt-4 opacity-80 font-medium">share your vibes</p>
+          <p className="text-xl sm:text-2xl mt-4 opacity-80 font-semibold">What's Your Vibe?</p>
 
           {user && profile ? (
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
